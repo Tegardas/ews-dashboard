@@ -1,13 +1,26 @@
-// MQTT Configuration - SESUAI DENGAN PROGRAM ESP32 ANDA
+// MQTT Configuration - SESUAI BROKER ANDA
 const MQTT_CONFIG = {
-    host: '103.127.97.247',
-    hosts: [
-        { host: '103.127.97.247', port: 8084, protocol: 'wss' }, // Secure WebSocket
-        { host: '103.127.97.247', port: 8083, protocol: 'ws' }   // Fallback to WS
+    connectionAttempts: [
+        {
+            name: "Secure WSS (Port 8084)",
+            url: "wss://103.127.97.247:8084/mqtt",
+            options: {
+                clientId: 'ews-dashboard-' + Math.random().toString(16).substr(2, 8),
+                username: 'rzkink_2554',
+                password: 'rizkink1234',
+                rejectUnauthorized: false // Important for self-signed certs
+            }
+        },
+        {
+            name: "WebSocket (Port 8083)", 
+            url: "ws://103.127.97.247:8083/mqtt",
+            options: {
+                clientId: 'ews-dashboard-' + Math.random().toString(16).substr(2, 8),
+                username: 'rzkink_2554',
+                password: 'rizkink1234'
+            }
+        }
     ],
-    clientId: 'ews-dashboard-' + Math.random().toString(16).substr(2, 8),
-    username: 'rzkink_2554',
-    password: 'rizkink1234',
     topics: {
         data: 'rzkink_2554/ews/sensor/data',
         alerts: 'rzkink_2554/ews/sensor/alerts',
@@ -141,78 +154,105 @@ function initializeCharts() {
     });
 }
 
-// MQTT Connection
+// Enhanced MQTT Connection dengan retry logic
 function connectMQTT() {
-    let currentHostIndex = 0;
+    let attemptIndex = 0;
+    let isConnecting = false;
     
-    function tryConnect() {
-        if (currentHostIndex >= MQTT_CONFIG.hosts.length) {
-            addLog('❌ All connection attempts failed. Please check MQTT broker configuration.', 'danger');
-            updateStatus('mqtt', 'error');
+    function attemptConnection() {
+        if (isConnecting) return;
+        if (attemptIndex >= MQTT_CONFIG.connectionAttempts.length) {
+            addLog('❌ All connection methods failed. Retrying in 10 seconds...', 'danger');
+            attemptIndex = 0; // Reset untuk retry
+            setTimeout(attemptConnection, 10000);
             return;
         }
         
-        const currentHost = MQTT_CONFIG.hosts[currentHostIndex];
-        const url = `${currentHost.protocol}://${currentHost.host}:${currentHost.port}/mqtt`;
-        
-        addLog(`🔄 Trying ${currentHost.protocol.toUpperCase()} connection (${currentHost.host}:${currentHost.port})...`, 'warning');
+        const attempt = MQTT_CONFIG.connectionAttempts[attemptIndex];
+        isConnecting = true;
+        addLog(`🔄 Attempting ${attempt.name}...`, 'warning');
         
         try {
-            // Close existing connection if any
-            if (mqttClient) {
+            // Close existing connection
+            if (mqttClient && mqttClient.connected) {
                 mqttClient.end();
             }
             
-            mqttClient = mqtt.connect(url, {
-                clientId: MQTT_CONFIG.clientId,
-                username: MQTT_CONFIG.username,
-                password: MQTT_CONFIG.password,
-                reconnectPeriod: 5000,
-                connectTimeout: 8000,
-                rejectUnauthorized: false // Allow self-signed certificates
+            mqttClient = mqtt.connect(attempt.url, {
+                ...attempt.options,
+                reconnectPeriod: 0, // Manual reconnect
+                connectTimeout: 10000,
+                keepalive: 60,
+                clean: true
             });
-
+            
+            // Connection timeout handler
+            const connectionTimeout = setTimeout(() => {
+                if (!mqttClient.connected) {
+                    addLog(`⏰ ${attempt.name} timeout`, 'danger');
+                    mqttClient.end();
+                    isConnecting = false;
+                    attemptIndex++;
+                    setTimeout(attemptConnection, 2000);
+                }
+            }, 10000);
+            
             mqttClient.on('connect', function() {
+                clearTimeout(connectionTimeout);
+                isConnecting = false;
                 updateStatus('mqtt', 'connected');
                 
                 // Subscribe to all topics
                 Object.values(MQTT_CONFIG.topics).forEach(topic => {
-                    mqttClient.subscribe(topic);
+                    mqttClient.subscribe(topic, { qos: 0 }, (err) => {
+                        if (err) {
+                            console.error(`Subscribe error for ${topic}:`, err);
+                        }
+                    });
                 });
                 
-                addLog(`✅ Connected via ${currentHost.protocol.toUpperCase()}`, 'normal');
+                addLog(`✅ Connected via ${attempt.name}`, 'normal');
                 sendCommand('request_data');
             });
-
+            
             mqttClient.on('message', function(topic, message) {
                 handleMQTTMessage(topic, message.toString());
             });
-
+            
             mqttClient.on('error', function(error) {
-                console.error('MQTT Error:', error);
-                addLog(`❌ ${currentHost.protocol.toUpperCase()} failed: ${error.message}`, 'danger');
-                
-                // Try next host after delay
-                currentHostIndex++;
-                setTimeout(tryConnect, 3000);
+                clearTimeout(connectionTimeout);
+                isConnecting = false;
+                addLog(`❌ ${attempt.name} error: ${error.message}`, 'danger');
+                attemptIndex++;
+                setTimeout(attemptConnection, 3000);
             });
-
+            
             mqttClient.on('close', function() {
-                if (currentHostIndex < MQTT_CONFIG.hosts.length - 1) {
+                clearTimeout(connectionTimeout);
+                isConnecting = false;
+                if (mqttClient && !mqttClient.connected) {
                     updateStatus('mqtt', 'disconnected');
-                    addLog(`🔌 ${currentHost.protocol.toUpperCase()} connection closed`, 'danger');
+                    addLog(`🔌 ${attempt.name} connection closed`, 'warning');
+                    // Auto-reconnect setelah delay
+                    setTimeout(attemptConnection, 5000);
                 }
             });
-
+            
+            mqttClient.on('offline', function() {
+                updateStatus('mqtt', 'disconnected');
+                addLog('🔌 MQTT offline', 'warning');
+            });
+            
         } catch (error) {
-            console.error('Connection failed:', error);
-            addLog(`❌ ${currentHost.protocol.toUpperCase()} connection failed: ${error.message}`, 'danger');
-            currentHostIndex++;
-            setTimeout(tryConnect, 3000);
+            clearTimeout(connectionTimeout);
+            isConnecting = false;
+            addLog(`❌ ${attempt.name} exception: ${error.message}`, 'danger');
+            attemptIndex++;
+            setTimeout(attemptConnection, 3000);
         }
     }
     
-    tryConnect();
+    attemptConnection();
 }
 
 // Handle MQTT Messages
@@ -221,7 +261,6 @@ function handleMQTTMessage(topic, message) {
         const data = JSON.parse(message);
         const timestamp = new Date().toLocaleTimeString();
 
-        // Update last update time
         document.getElementById('last-update').innerHTML = `⏰ Last: ${timestamp}`;
 
         if (topic.includes('sensor/data')) {
@@ -236,17 +275,17 @@ function handleMQTTMessage(topic, message) {
             handleDeviceInfo(data);
         }
 
-        addLog(`[${getTopicName(topic)}] Data from ${data.device_id || 'unknown'}`, 'normal');
+        addLog(`📡 [${getTopicName(topic)}] from ${data.device_id || 'unknown'}`, 'normal');
 
     } catch (error) {
         console.error('Error parsing message:', error);
-        addLog('Error parsing MQTT message from ' + topic, 'danger');
+        addLog(`❌ Parse error from ${topic}: ${error.message}`, 'danger');
     }
 }
 
 function getTopicName(fullTopic) {
     const parts = fullTopic.split('/');
-    return parts[parts.length - 1];
+    return parts.slice(-2).join('/'); // Ambil 2 bagian terakhir
 }
 
 // Handle Sensor Data
@@ -310,7 +349,7 @@ function handleOTAStatus(data) {
     document.getElementById('info-ota').textContent = inProgress ? 'In Progress' : 'Ready';
     document.getElementById('info-ota').style.color = inProgress ? '#f39c12' : '#27ae60';
     
-    addLog(`OTA: ${otaMessage}`, inProgress ? 'warning' : 'normal');
+    addLog(`🔄 OTA: ${otaMessage}`, inProgress ? 'warning' : 'normal');
     
     if (inProgress) {
         showBrowserNotification('OTA Update', otaMessage);
@@ -408,13 +447,18 @@ function sendCommand(command) {
 
     switch(command) {
         case 'request_data':
-            topic = MQTT_CONFIG.topics.control.replace('#', 'request_data');
-            message = JSON.stringify({ command: 'request_data' });
+            topic = 'rzkink_2554/ews/control/request_data';
+            message = JSON.stringify({ command: 'request_data', timestamp: Date.now() });
             break;
     }
 
-    mqttClient.publish(topic, message);
-    addLog(`Sent command: ${command}`, 'normal');
+    mqttClient.publish(topic, message, { qos: 0 }, (err) => {
+        if (err) {
+            addLog(`❌ Failed to send ${command}: ${err.message}`, 'danger');
+        } else {
+            addLog(`✅ Sent command: ${command}`, 'normal');
+        }
+    });
 }
 
 // Update Thresholds
@@ -427,18 +471,28 @@ function updateThresholds() {
     };
 
     if (mqttClient && mqttClient.connected) {
-        const topic = MQTT_CONFIG.topics.control.replace('#', 'threshold');
-        mqttClient.publish(topic, JSON.stringify(thresholds));
-        addLog('Updated thresholds: ' + JSON.stringify(thresholds), 'normal');
+        const topic = 'rzkink_2554/ews/control/threshold';
+        mqttClient.publish(topic, JSON.stringify(thresholds), { qos: 0 }, (err) => {
+            if (err) {
+                addLog(`❌ Failed to update thresholds: ${err.message}`, 'danger');
+            } else {
+                addLog('✅ Updated thresholds: ' + JSON.stringify(thresholds), 'normal');
+            }
+        });
     }
 }
 
 // Check OTA
 function checkOTA() {
     if (mqttClient && mqttClient.connected) {
-        const topic = MQTT_CONFIG.topics.control.replace('#', 'ota_check');
-        mqttClient.publish(topic, JSON.stringify({ command: 'ota_check' }));
-        addLog('Requested OTA check', 'normal');
+        const topic = 'rzkink_2554/ews/control/ota_check';
+        mqttClient.publish(topic, JSON.stringify({ command: 'ota_check', timestamp: Date.now() }), { qos: 0 }, (err) => {
+            if (err) {
+                addLog(`❌ Failed to check OTA: ${err.message}`, 'danger');
+            } else {
+                addLog('✅ Requested OTA check', 'normal');
+            }
+        });
     }
 }
 
@@ -496,7 +550,7 @@ function showBrowserNotification(title, body) {
     if ('Notification' in window && Notification.permission === 'granted') {
         new Notification(title, {
             body: body,
-            icon: '/assets/icon.png', // Anda bisa menambahkan icon
+            icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">⚠️</text></svg>',
             tag: 'ews-alert'
         });
     }

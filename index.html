@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EWS Dashboard - Monitoring Tanah Longsor</title>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>🌋 EWS Dashboard - Monitoring Pergerakan Tanah</h1>
+            <div class="status-indicators">
+                <div class="status-item status-connected" id="status-mqtt">
+                    🔌 MQTT: Connecting...
+                </div>
+                <div class="status-item status-devices" id="status-devices">
+                    📱 Devices: 0
+                </div>
+                <div class="status-item" id="last-update">
+                    ⏰ Last: -
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Dashboard Grid -->
+        <div class="dashboard-grid">
+            <!-- Status Card -->
+            <div class="card status-card">
+                <h2>🔄 Real-time Status</h2>
+                <div class="risk-indicator risk-normal" id="risk-indicator">
+                    STATUS: NORMAL
+                </div>
+                <div class="sensor-grid">
+                    <div class="sensor-item">
+                        <div class="sensor-value" id="tilt-roll">0.0°</div>
+                        <div class="sensor-label">Tilt Roll</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-value" id="tilt-pitch">0.0°</div>
+                        <div class="sensor-label">Tilt Pitch</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-value" id="soil-moisture">0%</div>
+                        <div class="sensor-label">Soil Moisture</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-value" id="temperature">0.0°C</div>
+                        <div class="sensor-label">Temperature</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-value" id="humidity">0%</div>
+                        <div class="sensor-label">Humidity</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-value" id="risk-score">0</div>
+                        <div class="sensor-label">Risk Score</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Chart Card -->
+            <div class="card">
+                <h2>📈 Tilt History</h2>
+                <div class="chart-container">
+                    <canvas id="tiltChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Rain Data Card -->
+            <div class="card">
+                <h2>🌧️ Rain Data</h2>
+                <div class="rain-grid">
+                    <div class="rain-item">
+                        <div class="rain-value" id="hourly-rain">0.0 mm</div>
+                        <div class="rain-label">Hourly Rain</div>
+                    </div>
+                    <div class="rain-item">
+                        <div class="rain-value" id="daily-rain">0.0 mm</div>
+                        <div class="rain-label">Daily Rain</div>
+                    </div>
+                </div>
+                <div class="chart-container">
+                    <canvas id="rainChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Controls Card -->
+            <div class="card">
+                <h2>🎮 Device Controls</h2>
+                <div class="controls">
+                    <button class="btn btn-primary" onclick="sendCommand('request_data')">
+                        📡 Request Data
+                    </button>
+                    <button class="btn btn-warning" onclick="updateThresholds()">
+                        ⚙️ Update Thresholds
+                    </button>
+                    <button class="btn btn-success" onclick="checkOTA()">
+                        🔄 Check OTA
+                    </button>
+                </div>
+                
+                <h3 style="margin-top: 20px;">📊 Custom Thresholds</h3>
+                <div class="threshold-controls">
+                    <div class="threshold-item">
+                        <label>Tilt Warning (°):</label>
+                        <input type="number" id="tilt-warning" value="3.0" step="0.1">
+                    </div>
+                    <div class="threshold-item">
+                        <label>Tilt Danger (°):</label>
+                        <input type="number" id="tilt-danger" value="6.0" step="0.1">
+                    </div>
+                    <div class="threshold-item">
+                        <label>Soil Warning (%):</label>
+                        <input type="number" id="soil-warning" value="70" step="1">
+                    </div>
+                    <div class="threshold-item">
+                        <label>Soil Danger (%):</label>
+                        <input type="number" id="soil-danger" value="85" step="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Log Card -->
+            <div class="card">
+                <h2>📋 Data Log</h2>
+                <div class="data-log" id="data-log">
+                    <div class="log-entry">
+                        <span class="log-timestamp">[00:00:00]</span>
+                        <span class="log-normal">System started. Waiting for data...</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Info Card -->
+            <div class="card">
+                <h2>📟 Device Information</h2>
+                <div class="device-info">
+                    <div class="info-item">
+                        <span class="info-label">Device ID:</span>
+                        <span class="info-value" id="info-device-id">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Location:</span>
+                        <span class="info-value" id="info-location">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Firmware:</span>
+                        <span class="info-value" id="info-firmware">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">IP Address:</span>
+                        <span class="info-value" id="info-ip">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">OTA Status:</span>
+                        <span class="info-value" id="info-ota">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

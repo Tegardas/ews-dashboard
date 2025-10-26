@@ -1,7 +1,10 @@
 // MQTT Configuration - SESUAI DENGAN PROGRAM ESP32 ANDA
 const MQTT_CONFIG = {
     host: '103.127.97.247',
-    port: 8083, // WebSocket port
+    hosts: [
+        { host: '103.127.97.247', port: 8084, protocol: 'wss' }, // Secure WebSocket
+        { host: '103.127.97.247', port: 8083, protocol: 'ws' }   // Fallback to WS
+    ],
     clientId: 'ews-dashboard-' + Math.random().toString(16).substr(2, 8),
     username: 'rzkink_2554',
     password: 'rizkink1234',
@@ -140,57 +143,76 @@ function initializeCharts() {
 
 // MQTT Connection
 function connectMQTT() {
-    try {
-        const url = `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt`;
-        mqttClient = mqtt.connect(url, {
-            clientId: MQTT_CONFIG.clientId,
-            username: MQTT_CONFIG.username,
-            password: MQTT_CONFIG.password,
-            reconnectPeriod: 5000,
-            connectTimeout: 10000
-        });
-
-        mqttClient.on('connect', function() {
-            updateStatus('mqtt', 'connected');
+    let currentHostIndex = 0;
+    
+    function tryConnect() {
+        if (currentHostIndex >= MQTT_CONFIG.hosts.length) {
+            addLog('❌ All connection attempts failed. Please check MQTT broker configuration.', 'danger');
+            updateStatus('mqtt', 'error');
+            return;
+        }
+        
+        const currentHost = MQTT_CONFIG.hosts[currentHostIndex];
+        const url = `${currentHost.protocol}://${currentHost.host}:${currentHost.port}/mqtt`;
+        
+        addLog(`🔄 Trying ${currentHost.protocol.toUpperCase()} connection (${currentHost.host}:${currentHost.port})...`, 'warning');
+        
+        try {
+            // Close existing connection if any
+            if (mqttClient) {
+                mqttClient.end();
+            }
             
-            // Subscribe to all topics
-            Object.values(MQTT_CONFIG.topics).forEach(topic => {
-                if (topic.endsWith('#') || topic.endsWith('+')) {
+            mqttClient = mqtt.connect(url, {
+                clientId: MQTT_CONFIG.clientId,
+                username: MQTT_CONFIG.username,
+                password: MQTT_CONFIG.password,
+                reconnectPeriod: 5000,
+                connectTimeout: 8000,
+                rejectUnauthorized: false // Allow self-signed certificates
+            });
+
+            mqttClient.on('connect', function() {
+                updateStatus('mqtt', 'connected');
+                
+                // Subscribe to all topics
+                Object.values(MQTT_CONFIG.topics).forEach(topic => {
                     mqttClient.subscribe(topic);
-                } else {
-                    mqttClient.subscribe(topic);
+                });
+                
+                addLog(`✅ Connected via ${currentHost.protocol.toUpperCase()}`, 'normal');
+                sendCommand('request_data');
+            });
+
+            mqttClient.on('message', function(topic, message) {
+                handleMQTTMessage(topic, message.toString());
+            });
+
+            mqttClient.on('error', function(error) {
+                console.error('MQTT Error:', error);
+                addLog(`❌ ${currentHost.protocol.toUpperCase()} failed: ${error.message}`, 'danger');
+                
+                // Try next host after delay
+                currentHostIndex++;
+                setTimeout(tryConnect, 3000);
+            });
+
+            mqttClient.on('close', function() {
+                if (currentHostIndex < MQTT_CONFIG.hosts.length - 1) {
+                    updateStatus('mqtt', 'disconnected');
+                    addLog(`🔌 ${currentHost.protocol.toUpperCase()} connection closed`, 'danger');
                 }
             });
-            
-            addLog('Connected to MQTT broker and subscribed to topics', 'normal');
-            
-            // Request initial data
-            sendCommand('request_data');
-        });
 
-        mqttClient.on('message', function(topic, message) {
-            handleMQTTMessage(topic, message.toString());
-        });
-
-        mqttClient.on('error', function(error) {
-            console.error('MQTT Error:', error);
-            updateStatus('mqtt', 'error');
-            addLog('MQTT connection error: ' + error.message, 'danger');
-        });
-
-        mqttClient.on('close', function() {
-            updateStatus('mqtt', 'disconnected');
-            addLog('Disconnected from MQTT broker', 'danger');
-        });
-
-        mqttClient.on('reconnect', function() {
-            addLog('Attempting to reconnect to MQTT...', 'warning');
-        });
-
-    } catch (error) {
-        console.error('Connection failed:', error);
-        addLog('Failed to connect: ' + error.message, 'danger');
+        } catch (error) {
+            console.error('Connection failed:', error);
+            addLog(`❌ ${currentHost.protocol.toUpperCase()} connection failed: ${error.message}`, 'danger');
+            currentHostIndex++;
+            setTimeout(tryConnect, 3000);
+        }
     }
+    
+    tryConnect();
 }
 
 // Handle MQTT Messages

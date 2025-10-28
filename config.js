@@ -1,7 +1,7 @@
 // MQTT Configuration
 const MQTT_CONFIG = {
-    broker: "103.127.97.247",
-    port: 8084, // 9001, // WebSocket port (typical for MQTT over WebSocket)
+    broker: "wss://103.127.97.247:8084/mqtt", // Gunakan WebSocket Secure
+    port: 8084,
     username: "rzkink_2554",
     password: "rizkink1234",
     clientId: "ews-dashboard-" + Math.random().toString(16).substr(2, 8),
@@ -11,6 +11,30 @@ const MQTT_CONFIG = {
         control: "rzkink_2554/ews/control",
         connection: "rzkink_2554/ews/connection",
         ota: "rzkink_2554/ews/ota/status"
+    }
+};
+
+const DEMO_DATA = {
+    device_id: "EWS_001",
+    location: "Lokasi_A", 
+    firmware: "1.0.0",
+    sensors: {
+        tilt_roll: 1.5,
+        tilt_pitch: 2.1,
+        soil_moisture: 45,
+        temperature: 28.5,
+        humidity: 65.2,
+        dailyrain: 12.5,
+        hourlyrain: 2.3,
+        displacement_x: 1.2,
+        displacement_y: 0.8,
+        displacement_z: 0.3,
+        total_displacement: 1.5
+    },
+    status: {
+        code: 0,
+        text: "NORMAL",
+        risk_score: 1
     }
 };
 

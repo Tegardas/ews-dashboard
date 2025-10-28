@@ -16,7 +16,7 @@ Dashboard real-time untuk memantau sistem Early Warning System (EWS) tanah longs
 Dashboard terhubung ke broker MQTT dengan konfigurasi:
 
 - **Host**: `103.127.97.247`
-- **Port**: `8083` (WebSocket)
+- **Port**: `8084` (WebSocket Secured)
 - **Username**: `rzkink_2554`
 - **Password**: `rizkink1234`
 

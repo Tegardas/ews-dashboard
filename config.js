@@ -1,0 +1,64 @@
+// MQTT Configuration
+const MQTT_CONFIG = {
+    broker: "103.127.97.247",
+    port: 8084, // 9001, // WebSocket port (typical for MQTT over WebSocket)
+    username: "rzkink_2554",
+    password: "rizkink1234",
+    clientId: "ews-dashboard-" + Math.random().toString(16).substr(2, 8),
+    topics: {
+        sensorData: "rzkink_2554/ews/sensor/data",
+        alerts: "rzkink_2554/ews/sensor/alerts",
+        control: "rzkink_2554/ews/control",
+        connection: "rzkink_2554/ews/connection",
+        ota: "rzkink_2554/ews/ota/status"
+    }
+};
+
+// Default Thresholds (will be updated from device)
+const DEFAULT_THRESHOLDS = {
+    tiltWarning: 3.0,
+    tiltDanger: 6.0,
+    soilWarning: 70,
+    soilDanger: 85,
+    humidityWarning: 85,
+    displacementWarning: 5.0,
+    displacementDanger: 10.0,
+    mqttInterval: 10000
+};
+
+// Chart Configuration
+const CHART_CONFIG = {
+    tilt: {
+        maxDataPoints: 50,
+        colors: {
+            roll: 'rgba(231, 76, 60, 0.8)',
+            pitch: 'rgba(52, 152, 219, 0.8)'
+        }
+    },
+    soil: {
+        maxDataPoints: 50,
+        color: 'rgba(39, 174, 96, 0.8)'
+    },
+    displacement: {
+        maxDataPoints: 50,
+        colors: {
+            x: 'rgba(155, 89, 182, 0.8)',
+            y: 'rgba(241, 196, 15, 0.8)',
+            z: 'rgba(230, 126, 34, 0.8)',
+            total: 'rgba(52, 73, 94, 0.8)'
+        }
+    },
+    risk: {
+        maxDataPoints: 50,
+        colors: {
+            low: 'rgba(39, 174, 96, 0.8)',
+            medium: 'rgba(241, 196, 15, 0.8)',
+            high: 'rgba(231, 76, 60, 0.8)'
+        }
+    }
+};
+
+// Export configuration
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { MQTT_CONFIG, DEFAULT_THRESHOLDS, CHART_CONFIG };
+}

@@ -33,202 +33,196 @@ class EWSDashboard {
         };
         this.charts = {};
         this.logEntries = [];
-
-        setTimeout(() => {
+        
+        // Emergency hide timeout
+        this.emergencyHideTimeout = setTimeout(() => {
+            console.log('🆘 Emergency hide loading overlay');
             this.hideLoading();
-        }, 8000);
+        }, 5000);
         
         this.init();
     }
 
     init() {
         console.log('🚀 Initializing EWS Dashboard...');
+        console.log('Paho MQTT available:', typeof Paho !== 'undefined');
+        console.log('Paho.MQTT available:', typeof Paho.MQTT !== 'undefined');
+        console.log('Paho.MQTT.Client available:', typeof Paho.MQTT.Client !== 'undefined');
         
-        // Langsung initialize tanpa delay
+        // Initialize components
         this.initializeCharts();
         this.setupEventListeners();
         this.loadFromLocalStorage();
         
-        // Hide loading overlay immediately
+        // Hide loading immediately - UI ready
         this.hideLoading();
         
-        // Connect MQTT tanpa blocking UI
+        // Try MQTT connection
         this.connectMQTT();
     }
 
     initializeCharts() {
-        // Tilt Chart
-        this.charts.tilt = new Chart(document.getElementById('tiltChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        label: 'Roll',
-                        data: [],
-                        borderColor: CHART_CONFIG.tilt.colors.roll,
-                        backgroundColor: CHART_CONFIG.tilt.colors.roll.replace('0.8', '0.1'),
-                        tension: 0.4,
-                        fill: true
-                    },
-                    {
-                        label: 'Pitch',
-                        data: [],
-                        borderColor: CHART_CONFIG.tilt.colors.pitch,
-                        backgroundColor: CHART_CONFIG.tilt.colors.pitch.replace('0.8', '0.1'),
-                        tension: 0.4,
-                        fill: true
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: true },
-                    tooltip: { mode: 'index', intersect: false }
-                },
-                scales: {
-                    x: { 
-                        title: { display: true, text: 'Time' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    },
-                    y: { 
-                        title: { display: true, text: 'Angle (°)' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    }
+        console.log('📊 Initializing charts...');
+        
+        // Tunggu sampai DOM benar-benar ready
+        setTimeout(() => {
+            try {
+                // Tilt Chart
+                const tiltCanvas = document.getElementById('tiltChart');
+                if (tiltCanvas) {
+                    this.charts.tilt = new Chart(tiltCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'Roll',
+                                    data: [],
+                                    borderColor: 'rgba(231, 76, 60, 0.8)',
+                                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Pitch',
+                                    data: [],
+                                    borderColor: 'rgba(52, 152, 219, 0.8)',
+                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: true }
+                            }
+                        }
+                    });
+                    console.log('✅ Tilt chart initialized');
+                } else {
+                    console.error('❌ tiltChart canvas not found');
                 }
-            }
-        });
 
-        // Soil Moisture Chart
-        this.charts.soil = new Chart(document.getElementById('soilChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Soil Moisture',
-                    data: [],
-                    borderColor: CHART_CONFIG.soil.color,
-                    backgroundColor: CHART_CONFIG.soil.color.replace('0.8', '0.1'),
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: true }
-                },
-                scales: {
-                    x: { 
-                        title: { display: true, text: 'Time' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    },
-                    y: { 
-                        title: { display: true, text: 'Moisture (%)' },
-                        min: 0,
-                        max: 100,
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    }
+                // Soil Moisture Chart
+                const soilCanvas = document.getElementById('soilChart');
+                if (soilCanvas) {
+                    this.charts.soil = new Chart(soilCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Soil Moisture',
+                                data: [],
+                                borderColor: 'rgba(39, 174, 96, 0.8)',
+                                backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: true }
+                            }
+                        }
+                    });
+                    console.log('✅ Soil chart initialized');
                 }
-            }
-        });
 
-        // Displacement Chart
-        this.charts.displacement = new Chart(document.getElementById('displacementChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [
-                    {
-                        label: 'X Axis',
-                        data: [],
-                        borderColor: CHART_CONFIG.displacement.colors.x,
-                        backgroundColor: CHART_CONFIG.displacement.colors.x.replace('0.8', '0.1'),
-                        tension: 0.4,
-                        fill: false
-                    },
-                    {
-                        label: 'Y Axis',
-                        data: [],
-                        borderColor: CHART_CONFIG.displacement.colors.y,
-                        backgroundColor: CHART_CONFIG.displacement.colors.y.replace('0.8', '0.1'),
-                        tension: 0.4,
-                        fill: false
-                    },
-                    {
-                        label: 'Z Axis',
-                        data: [],
-                        borderColor: CHART_CONFIG.displacement.colors.z,
-                        backgroundColor: CHART_CONFIG.displacement.colors.z.replace('0.8', '0.1'),
-                        tension: 0.4,
-                        fill: false
-                    },
-                    {
-                        label: 'Total',
-                        data: [],
-                        borderColor: CHART_CONFIG.displacement.colors.total,
-                        backgroundColor: CHART_CONFIG.displacement.colors.total.replace('0.8', '0.1'),
-                        tension: 0.4,
-                        fill: true
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: true }
-                },
-                scales: {
-                    x: { 
-                        title: { display: true, text: 'Time' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    },
-                    y: { 
-                        title: { display: true, text: 'Displacement (cm)' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    }
+                // Displacement Chart
+                const displacementCanvas = document.getElementById('displacementChart');
+                if (displacementCanvas) {
+                    this.charts.displacement = new Chart(displacementCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'X Axis',
+                                    data: [],
+                                    borderColor: 'rgba(155, 89, 182, 0.8)',
+                                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                                    tension: 0.4,
+                                    fill: false
+                                },
+                                {
+                                    label: 'Y Axis',
+                                    data: [],
+                                    borderColor: 'rgba(241, 196, 15, 0.8)',
+                                    backgroundColor: 'rgba(241, 196, 15, 0.1)',
+                                    tension: 0.4,
+                                    fill: false
+                                },
+                                {
+                                    label: 'Z Axis',
+                                    data: [],
+                                    borderColor: 'rgba(230, 126, 34, 0.8)',
+                                    backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                                    tension: 0.4,
+                                    fill: false
+                                },
+                                {
+                                    label: 'Total',
+                                    data: [],
+                                    borderColor: 'rgba(52, 73, 94, 0.8)',
+                                    backgroundColor: 'rgba(52, 73, 94, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: true }
+                            }
+                        }
+                    });
+                    console.log('✅ Displacement chart initialized');
                 }
-            }
-        });
 
-        // Risk Score Chart
-        this.charts.risk = new Chart(document.getElementById('riskChart'), {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Risk Score',
-                    data: [],
-                    borderColor: CHART_CONFIG.risk.colors.medium,
-                    backgroundColor: CHART_CONFIG.risk.colors.medium.replace('0.8', '0.1'),
-                    tension: 0.4,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: true }
-                },
-                scales: {
-                    x: { 
-                        title: { display: true, text: 'Time' },
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    },
-                    y: { 
-                        title: { display: true, text: 'Risk Score' },
-                        min: 0,
-                        max: 7,
-                        grid: { color: 'rgba(0,0,0,0.1)' }
-                    }
+                // Risk Chart
+                const riskCanvas = document.getElementById('riskChart');
+                if (riskCanvas) {
+                    this.charts.risk = new Chart(riskCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [{
+                                label: 'Risk Score',
+                                data: [],
+                                borderColor: 'rgba(241, 196, 15, 0.8)',
+                                backgroundColor: 'rgba(241, 196, 15, 0.1)',
+                                tension: 0.4,
+                                fill: true
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: true }
+                            },
+                            scales: {
+                                y: {
+                                    min: 0,
+                                    max: 7
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ Risk chart initialized');
                 }
+
+            } catch (error) {
+                console.error('❌ Chart initialization error:', error);
             }
-        });
+        }, 100);
     }
 
     setupEventListeners() {
@@ -260,7 +254,16 @@ class EWSDashboard {
     }
 
     connectMQTT() {
+        if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined' || typeof Paho.MQTT.Client === 'undefined') {
+            console.error('❌ Paho MQTT library not loaded!');
+            this.updateConnectionStatus('offline', 'MQTT Library Failed to Load');
+            this.addLog('connection', 'error', 'Paho MQTT library not available. Check internet connection.');
+            return;
+        }
+
         try {
+            console.log('🔌 Attempting MQTT connection...');
+            
             this.mqttClient = new Paho.MQTT.Client(
                 MQTT_CONFIG.broker,
                 MQTT_CONFIG.port,
@@ -268,10 +271,12 @@ class EWSDashboard {
             );
 
             this.mqttClient.onConnectionLost = (response) => {
+                console.log('🔌 MQTT Connection lost:', response);
                 this.handleConnectionLost(response);
             };
 
             this.mqttClient.onMessageArrived = (message) => {
+                console.log('📨 MQTT Message received:', message.destinationName);
                 this.handleMessage(message);
             };
 
@@ -279,20 +284,32 @@ class EWSDashboard {
                 useSSL: true,
                 userName: MQTT_CONFIG.username,
                 password: MQTT_CONFIG.password,
-                onSuccess: () => this.handleConnectSuccess(),
-                onFailure: (error) => this.handleConnectFailure(error),
-                timeout: 3,
+                onSuccess: () => {
+                    console.log('✅ MQTT Connected successfully');
+                    this.handleConnectSuccess();
+                },
+                onFailure: (error) => {
+                    console.log('❌ MQTT Connection failed:', error);
+                    this.handleConnectFailure(error);
+                },
+                timeout: 10,
                 keepAliveInterval: 30,
-                cleanSession: true
+                cleanSession: true,
+                reconnect: true
             };
 
-            this.updateConnectionStatus('connecting', 'Connecting to MQTT...');
+            this.updateConnectionStatus('connecting', 'Connecting to MQTT Broker...');
             this.mqttClient.connect(options);
 
         } catch (error) {
-            console.error('MQTT Connection Error:', error);
+            console.error('❌ MQTT Connection Error:', error);
             this.addLog('connection', 'error', `Connection failed: ${error.message}`);
-            this.updateConnectionStatus('offline', 'Connection failed');
+            this.updateConnectionStatus('offline', 'Connection Failed');
+            
+            // Clear emergency timeout
+            if (this.emergencyHideTimeout) {
+                clearTimeout(this.emergencyHideTimeout);
+            }
         }
     }
 
@@ -300,6 +317,11 @@ class EWSDashboard {
         this.isConnected = true;
         this.updateConnectionStatus('connected', 'Connected to EWS');
         this.addLog('connection', 'success', 'Successfully connected to MQTT broker');
+        
+        // Clear emergency timeout
+        if (this.emergencyHideTimeout) {
+            clearTimeout(this.emergencyHideTimeout);
+        }
         
         // Subscribe to topics
         Object.values(MQTT_CONFIG.topics).forEach(topic => {
@@ -310,8 +332,13 @@ class EWSDashboard {
 
     handleConnectFailure(error) {
         this.isConnected = false;
-        this.updateConnectionStatus('offline', 'Connection failed');
+        this.updateConnectionStatus('offline', 'Connection Failed - Retrying...');
         this.addLog('connection', 'error', `Connection failed: ${error.errorMessage}`);
+        
+        // Clear emergency timeout
+        if (this.emergencyHideTimeout) {
+            clearTimeout(this.emergencyHideTimeout);
+        }
         
         // Auto-retry connection after 5 seconds
         setTimeout(() => {
@@ -336,9 +363,15 @@ class EWSDashboard {
             if (loadingOverlay) {
                 loadingOverlay.style.display = 'none';
                 console.log('✅ Loading overlay hidden');
+                // Clear emergency timeout
+                if (this.emergencyHideTimeout) {
+                    clearTimeout(this.emergencyHideTimeout);
+                }
+            } else {
+                console.warn('⚠️ Loading overlay element not found');
             }
         } catch (error) {
-            console.error('Error hiding loading overlay:', error);
+            console.error('❌ Error hiding loading overlay:', error);
         }
     }
 

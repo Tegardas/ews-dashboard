@@ -1,6 +1,6 @@
 // MQTT Configuration
 const MQTT_CONFIG = {
-    broker: "wss://103.127.97.247:8084/mqtt", // Gunakan WebSocket Secure
+    broker: "103.127.97.247", // Gunakan WebSocket Secure
     port: 8084,
     username: "rzkink_2554",
     password: "rizkink1234",

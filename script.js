@@ -8,6 +8,7 @@ class EWSDashboard {
             tilt: { roll: [], pitch: [] },
             soil: [],
             displacement: { x: [], y: [], z: [], total: [] },
+            weather : {humd: [], temp: [], daily: [], hourly: []},
             risk: []
         };
         this.charts = {};
@@ -181,6 +182,94 @@ class EWSDashboard {
                         }
                     });
                     console.log('✅ Displacement chart initialized');
+                }
+
+                const humptempCanvas = document.getElementById('humtempChart');
+                if (humptempCanvas && typeof Chart !== 'undefined') {
+                    this.charts.humptemp = new Chart(humptempCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'Humidity',
+                                    data: [],
+                                    borderColor: 'rgba(13, 201, 230, 0.8)',
+                                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Temperature',
+                                    data: [],
+                                    borderColor: 'rgba(237, 234, 15, 0.8)',
+                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: true }
+                            },
+                            scales: {
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Celcius dan %'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ HumTempChart initialized');
+                }
+
+                const rainCanvas = document.getElementById('rainChart');
+                if (rainCanvas && typeof Chart !== 'undefined') {
+                    this.charts.rain = new Chart(rainCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: [
+                                {
+                                    label: 'Daily Rain',
+                                    data: [],
+                                    borderColor: 'rgba(150, 13, 230, 0.8)',
+                                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                },
+                                {
+                                    label: 'Hourly Rain',
+                                    data: [],
+                                    borderColor: 'rgba(15, 22, 237, 0.8)',
+                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                    tension: 0.4,
+                                    fill: true
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: true }
+                            },
+                            scales: {
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'mm'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                    console.log('✅ RainChart initialized');
                 }
 
                 // Risk Chart
@@ -501,6 +590,10 @@ class EWSDashboard {
             this.historyData.displacement.y.shift();
             this.historyData.displacement.z.shift();
             this.historyData.displacement.total.shift();
+            this.historyData.weather.humd.shift();
+            this.historyData.weather.temp.shift();
+            this.historyData.weather.daily.shift();
+            this.historyData.weather.hourly.shift();
             this.historyData.risk.shift();
         }
         
@@ -515,6 +608,10 @@ class EWSDashboard {
             this.historyData.displacement.y.push(data.sensors.displacement_y || 0);
             this.historyData.displacement.z.push(data.sensors.displacement_z || 0);
             this.historyData.displacement.total.push(data.sensors.total_displacement || 0);
+            this.historyData.weather.humd.push(data.sensors.humidity || 0);
+            this.historyData.weather.temp.push(data.sensors.temperature || 0);
+            this.historyData.weather.daily.push(data.sensors.dailyrain || 0);
+            this.historyData.weather.hourly.push(data.sensors.hourlyrain || 0);
         }
         
         if (data.status?.risk_score !== undefined) {
@@ -546,6 +643,20 @@ class EWSDashboard {
             this.charts.displacement.data.datasets[2].data = this.historyData.displacement.z;
             this.charts.displacement.data.datasets[3].data = this.historyData.displacement.total;
             this.charts.displacement.update('none');
+        }
+
+        if (this.charts.humptemp) {
+            this.charts.humptemp.data.labels = this.historyData.timestamps;
+            this.charts.humptemp.data.datasets[0].data = this.historyData.weather.humd;
+            this.charts.humptemp.data.datasets[1].data = this.historyData.weather.temp;
+            this.charts.humptemp.update('none');
+        }
+
+        if (this.charts.rain) {
+            this.charts.rain.data.labels = this.historyData.timestamps;
+            this.charts.rain.data.datasets[0].data = this.historyData.weather.dailyrain;
+            this.charts.rain.data.datasets[1].data = this.historyData.weather.hourlyrain;
+            this.charts.rain.update('none');
         }
         
         // Update risk chart

@@ -1,3 +1,24 @@
+// Global error handler untuk catch semua error
+window.addEventListener('error', function(e) {
+    console.error('Global error caught:', e.error);
+    
+    // Force hide loading overlay jika ada error
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+});
+
+// Handle unhandled promise rejections
+window.addEventListener('unhandledrejection', function(e) {
+    console.error('Unhandled promise rejection:', e.reason);
+    
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+});
+
 class EWSDashboard {
     constructor() {
         this.mqttClient = null;
@@ -12,68 +33,27 @@ class EWSDashboard {
         };
         this.charts = {};
         this.logEntries = [];
-        this.isDemoMode = false;
+
+        setTimeout(() => {
+            this.hideLoading();
+        }, 8000);
         
         this.init();
     }
 
     init() {
+        console.log('🚀 Initializing EWS Dashboard...');
+        
+        // Langsung initialize tanpa delay
         this.initializeCharts();
         this.setupEventListeners();
-        this.setupDemoData(); // Setup demo data pertama
-        
-        // Coba connect MQTT, fallback ke demo mode jika gagal
-        this.connectMQTT().catch(error => {
-            console.warn('MQTT Connection failed, entering demo mode:', error);
-            this.enableDemoMode();
-        });
-        
         this.loadFromLocalStorage();
         
-        // Hide loading setelah timeout
-        setTimeout(() => {
-            this.hideLoading();
-        }, 2000);
-    }
-
-    enableDemoMode() {
-        this.isDemoMode = true;
-        this.updateConnectionStatus('offline', 'Demo Mode - No MQTT Connection');
-        this.addLog('connection', 'warning', 'Running in demo mode - MQTT connection failed');
+        // Hide loading overlay immediately
+        this.hideLoading();
         
-        // Update dengan data demo
-        this.handleSensorData(DEMO_DATA);
-        
-        // Simulate real-time updates
-        setInterval(() => {
-            this.updateDemoData();
-        }, 5000);
-    }
-
-    setupDemoData() {
-        // Initialize dengan data demo
-        this.handleSensorData(DEMO_DATA);
-    }
-
-    updateDemoData() {
-        if (!this.isDemoMode) return;
-        
-        // Generate random variations untuk demo
-        const demoUpdate = {
-            ...DEMO_DATA,
-            sensors: {
-                ...DEMO_DATA.sensors,
-                tilt_roll: (DEMO_DATA.sensors.tilt_roll + (Math.random() - 0.5)).toFixed(1),
-                tilt_pitch: (DEMO_DATA.sensors.tilt_pitch + (Math.random() - 0.5)).toFixed(1),
-                soil_moisture: Math.max(0, Math.min(100, DEMO_DATA.sensors.soil_moisture + (Math.random() * 10 - 5))),
-                temperature: (DEMO_DATA.sensors.temperature + (Math.random() - 0.5)).toFixed(1),
-                humidity: Math.max(0, Math.min(100, DEMO_DATA.sensors.humidity + (Math.random() * 5 - 2.5))),
-                total_displacement: (DEMO_DATA.sensors.total_displacement + (Math.random() * 0.2)).toFixed(2)
-            },
-            timestamp: Date.now()
-        };
-        
-        this.handleSensorData(demoUpdate);
+        // Connect MQTT tanpa blocking UI
+        this.connectMQTT();
     }
 
     initializeCharts() {
@@ -279,54 +259,41 @@ class EWSDashboard {
         });
     }
 
-    async connectMQTT() {
-        return new Promise((resolve, reject) => {
-            try {
-                this.mqttClient = new Paho.MQTT.Client(
-                    MQTT_CONFIG.broker,
-                    MQTT_CONFIG.port,
-                    MQTT_CONFIG.clientId
-                );
+    connectMQTT() {
+        try {
+            this.mqttClient = new Paho.MQTT.Client(
+                MQTT_CONFIG.broker,
+                MQTT_CONFIG.port,
+                MQTT_CONFIG.clientId
+            );
 
-                this.mqttClient.onConnectionLost = (response) => {
-                    this.handleConnectionLost(response);
-                    if (!this.isDemoMode) {
-                        this.enableDemoMode();
-                    }
-                };
+            this.mqttClient.onConnectionLost = (response) => {
+                this.handleConnectionLost(response);
+            };
 
-                this.mqttClient.onMessageArrived = (message) => {
-                    this.handleMessage(message);
-                };
+            this.mqttClient.onMessageArrived = (message) => {
+                this.handleMessage(message);
+            };
 
-                const options = {
-                    useSSL: true,
-                    userName: MQTT_CONFIG.username,
-                    password: MQTT_CONFIG.password,
-                    onSuccess: () => {
-                        this.handleConnectSuccess();
-                        resolve();
-                    },
-                    onFailure: (error) => {
-                        this.handleConnectFailure(error);
-                        reject(error);
-                    },
-                    timeout: 5,
-                    keepAliveInterval: 30,
-                    cleanSession: true,
-                    reconnect: true
-                };
+            const options = {
+                useSSL: true,
+                userName: MQTT_CONFIG.username,
+                password: MQTT_CONFIG.password,
+                onSuccess: () => this.handleConnectSuccess(),
+                onFailure: (error) => this.handleConnectFailure(error),
+                timeout: 3,
+                keepAliveInterval: 30,
+                cleanSession: true
+            };
 
-                this.updateConnectionStatus('connecting', 'Connecting to MQTT...');
-                this.mqttClient.connect(options);
+            this.updateConnectionStatus('connecting', 'Connecting to MQTT...');
+            this.mqttClient.connect(options);
 
-            } catch (error) {
-                console.error('MQTT Connection Error:', error);
-                this.addLog('connection', 'error', `Connection failed: ${error.message}`);
-                this.updateConnectionStatus('offline', 'Connection failed');
-                reject(error);
-            }
-        });
+        } catch (error) {
+            console.error('MQTT Connection Error:', error);
+            this.addLog('connection', 'error', `Connection failed: ${error.message}`);
+            this.updateConnectionStatus('offline', 'Connection failed');
+        }
     }
 
     handleConnectSuccess() {
@@ -346,8 +313,10 @@ class EWSDashboard {
         this.updateConnectionStatus('offline', 'Connection failed');
         this.addLog('connection', 'error', `Connection failed: ${error.errorMessage}`);
         
-        // Retry connection after 5 seconds
-        setTimeout(() => this.connectMQTT(), 5000);
+        // Auto-retry connection after 5 seconds
+        setTimeout(() => {
+            this.connectMQTT();
+        }, 5000);
     }
 
     handleConnectionLost(response) {
@@ -355,8 +324,22 @@ class EWSDashboard {
         this.updateConnectionStatus('offline', 'Connection lost');
         this.addLog('connection', 'warning', `Connection lost: ${response.errorMessage}`);
         
-        // Attempt reconnect
-        setTimeout(() => this.connectMQTT(), 3000);
+        // Auto-reconnect after 3 seconds
+        setTimeout(() => {
+            this.connectMQTT();
+        }, 3000);
+    }
+
+    hideLoading() {
+        try {
+            const loadingOverlay = document.getElementById('loadingOverlay');
+            if (loadingOverlay) {
+                loadingOverlay.style.display = 'none';
+                console.log('✅ Loading overlay hidden');
+            }
+        } catch (error) {
+            console.error('Error hiding loading overlay:', error);
+        }
     }
 
     handleMessage(message) {

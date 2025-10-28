@@ -14,30 +14,6 @@ const MQTT_CONFIG = {
     }
 };
 
-const DEMO_DATA = {
-    device_id: "EWS_001",
-    location: "Lokasi_A", 
-    firmware: "1.0.0",
-    sensors: {
-        tilt_roll: 1.5,
-        tilt_pitch: 2.1,
-        soil_moisture: 45,
-        temperature: 28.5,
-        humidity: 65.2,
-        dailyrain: 12.5,
-        hourlyrain: 2.3,
-        displacement_x: 1.2,
-        displacement_y: 0.8,
-        displacement_z: 0.3,
-        total_displacement: 1.5
-    },
-    status: {
-        code: 0,
-        text: "NORMAL",
-        risk_score: 1
-    }
-};
-
 // Default Thresholds (will be updated from device)
 const DEFAULT_THRESHOLDS = {
     tiltWarning: 3.0,

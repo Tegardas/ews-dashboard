@@ -11,18 +11,7 @@
     
     <!-- JavaScript Libraries -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
-    <!-- Paho MQTT - Gunakan CDN yang berbeda -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.1.0/paho-mqtt.min.js"></script>
-    <!-- Fallback jika CDN di atas gagal -->
-    <script>
-        window.Paho = window.Paho || {};
-        window.Paho.MQTT = window.Paho.MQTT || {};
-        if (typeof Paho.MQTT.Client === 'undefined') {
-            console.log('Loading Paho MQTT from alternative CDN...');
-            // Kita akan load secara synchronous jika needed
-        }
-    </script>
 </head>
 <body>
     <!-- Header -->
@@ -197,10 +186,10 @@
                     <h4>Displacement History</h4>
                     <canvas id="displacementChart"></canvas>
                 </div>
-                <!-- <div class="chart-container">
+                <div class="chart-container">
                     <h4>Risk Score History</h4>
                     <canvas id="riskChart"></canvas>
-                </div> -->
+                </div>
             </div>
         </section>
 
@@ -212,11 +201,11 @@
                     <h4>Tilt Thresholds</h4>
                     <div class="input-group">
                         <label>Warning Threshold (°)</label>
-                        <input type="number" id="tiltWarning" step="0.1" min="0" max="10">
+                        <input type="number" id="tiltWarning" step="0.1" min="0" max="10" value="3.0">
                     </div>
                     <div class="input-group">
                         <label>Danger Threshold (°)</label>
-                        <input type="number" id="tiltDanger" step="0.1" min="0" max="15">
+                        <input type="number" id="tiltDanger" step="0.1" min="0" max="15" value="6.0">
                     </div>
                 </div>
 
@@ -224,11 +213,11 @@
                     <h4>Soil Moisture Thresholds</h4>
                     <div class="input-group">
                         <label>Warning Threshold (%)</label>
-                        <input type="number" id="soilWarning" min="0" max="100">
+                        <input type="number" id="soilWarning" min="0" max="100" value="70">
                     </div>
                     <div class="input-group">
                         <label>Danger Threshold (%)</label>
-                        <input type="number" id="soilDanger" min="0" max="100">
+                        <input type="number" id="soilDanger" min="0" max="100" value="85">
                     </div>
                 </div>
 
@@ -236,11 +225,11 @@
                     <h4>Displacement Thresholds</h4>
                     <div class="input-group">
                         <label>Warning Threshold (cm)</label>
-                        <input type="number" id="displacementWarning" step="0.1" min="0" max="20">
+                        <input type="number" id="displacementWarning" step="0.1" min="0" max="20" value="5.0">
                     </div>
                     <div class="input-group">
                         <label>Danger Threshold (cm)</label>
-                        <input type="number" id="displacementDanger" step="0.1" min="0" max="20">
+                        <input type="number" id="displacementDanger" step="0.1" min="0" max="20" value="10.0">
                     </div>
                 </div>
 
@@ -248,11 +237,11 @@
                     <h4>Other Settings</h4>
                     <div class="input-group">
                         <label>Humidity Warning (%)</label>
-                        <input type="number" id="humidityWarning" min="0" max="100">
+                        <input type="number" id="humidityWarning" min="0" max="100" value="85">
                     </div>
                     <div class="input-group">
                         <label>MQTT Interval (ms)</label>
-                        <input type="number" id="mqttInterval" min="5000" max="60000" step="1000">
+                        <input type="number" id="mqttInterval" min="5000" max="60000" step="1000" value="10000">
                     </div>
                 </div>
             </div>
@@ -311,21 +300,6 @@
             <div class="modal-footer">
                 <button id="acknowledgeAlert" class="btn btn-primary">Acknowledge</button>
             </div>
-        </div>
-    </div>
-
-    <!-- Loading Overlay -->
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner">
-            <i class="fas fa-satellite fa-spin"></i>
-            <p>Connecting to EWS System...</p>
-        </div>
-    </div>
-
-    <div id="loadingOverlay" class="loading-overlay">
-        <div class="loading-spinner">
-            <i class="fas fa-satellite fa-spin"></i>
-            <p>Connecting to EWS System...</p>
         </div>
     </div>
 

@@ -1,24 +1,3 @@
-// Global error handler untuk catch semua error
-window.addEventListener('error', function(e) {
-    console.error('Global error caught:', e.error);
-    
-    // Force hide loading overlay jika ada error
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
-    }
-});
-
-// Handle unhandled promise rejections
-window.addEventListener('unhandledrejection', function(e) {
-    console.error('Unhandled promise rejection:', e.reason);
-    
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (loadingOverlay) {
-        loadingOverlay.style.display = 'none';
-    }
-});
-
 class EWSDashboard {
     constructor() {
         this.mqttClient = null;
@@ -34,42 +13,33 @@ class EWSDashboard {
         this.charts = {};
         this.logEntries = [];
         
-        // Emergency hide timeout
-        this.emergencyHideTimeout = setTimeout(() => {
-            console.log('🆘 Emergency hide loading overlay');
-            this.hideLoading();
-        }, 5000);
-        
         this.init();
     }
 
     init() {
         console.log('🚀 Initializing EWS Dashboard...');
-        console.log('Paho MQTT available:', typeof Paho !== 'undefined');
-        console.log('Paho.MQTT available:', typeof Paho.MQTT !== 'undefined');
-        console.log('Paho.MQTT.Client available:', typeof Paho.MQTT.Client !== 'undefined');
         
         // Initialize components
         this.initializeCharts();
         this.setupEventListeners();
         this.loadFromLocalStorage();
         
-        // Hide loading immediately - UI ready
-        this.hideLoading();
-        
-        // Try MQTT connection
+        // Start MQTT connection
         this.connectMQTT();
+        
+        // Add initial log
+        this.addLog('connection', 'info', 'Dashboard initialized successfully');
     }
 
     initializeCharts() {
         console.log('📊 Initializing charts...');
         
-        // Tunggu sampai DOM benar-benar ready
+        // Wait for DOM to be fully ready
         setTimeout(() => {
             try {
                 // Tilt Chart
                 const tiltCanvas = document.getElementById('tiltChart');
-                if (tiltCanvas) {
+                if (tiltCanvas && typeof Chart !== 'undefined') {
                     this.charts.tilt = new Chart(tiltCanvas, {
                         type: 'line',
                         data: {
@@ -98,17 +68,23 @@ class EWSDashboard {
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: { display: true }
+                            },
+                            scales: {
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Angle (°)'
+                                    }
+                                }
                             }
                         }
                     });
                     console.log('✅ Tilt chart initialized');
-                } else {
-                    console.error('❌ tiltChart canvas not found');
                 }
 
                 // Soil Moisture Chart
                 const soilCanvas = document.getElementById('soilChart');
-                if (soilCanvas) {
+                if (soilCanvas && typeof Chart !== 'undefined') {
                     this.charts.soil = new Chart(soilCanvas, {
                         type: 'line',
                         data: {
@@ -127,6 +103,16 @@ class EWSDashboard {
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: { display: true }
+                            },
+                            scales: {
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Moisture (%)'
+                                    },
+                                    min: 0,
+                                    max: 100
+                                }
                             }
                         }
                     });
@@ -135,7 +121,7 @@ class EWSDashboard {
 
                 // Displacement Chart
                 const displacementCanvas = document.getElementById('displacementChart');
-                if (displacementCanvas) {
+                if (displacementCanvas && typeof Chart !== 'undefined') {
                     this.charts.displacement = new Chart(displacementCanvas, {
                         type: 'line',
                         data: {
@@ -180,6 +166,14 @@ class EWSDashboard {
                             maintainAspectRatio: false,
                             plugins: {
                                 legend: { display: true }
+                            },
+                            scales: {
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Displacement (cm)'
+                                    }
+                                }
                             }
                         }
                     });
@@ -188,7 +182,7 @@ class EWSDashboard {
 
                 // Risk Chart
                 const riskCanvas = document.getElementById('riskChart');
-                if (riskCanvas) {
+                if (riskCanvas && typeof Chart !== 'undefined') {
                     this.charts.risk = new Chart(riskCanvas, {
                         type: 'line',
                         data: {
@@ -210,6 +204,10 @@ class EWSDashboard {
                             },
                             scales: {
                                 y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Risk Score'
+                                    },
                                     min: 0,
                                     max: 7
                                 }
@@ -221,6 +219,7 @@ class EWSDashboard {
 
             } catch (error) {
                 console.error('❌ Chart initialization error:', error);
+                this.addLog('system', 'error', `Chart initialization failed: ${error.message}`);
             }
         }, 100);
     }
@@ -246,23 +245,19 @@ class EWSDashboard {
                 this.hideAlert();
             }
         });
-
-        // Auto-save when inputs change
-        document.querySelectorAll('.input-group input').forEach(input => {
-            input.addEventListener('change', () => this.saveToLocalStorage());
-        });
     }
 
     connectMQTT() {
-        if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined' || typeof Paho.MQTT.Client === 'undefined') {
+        // Check if Paho MQTT is loaded
+        if (typeof Paho === 'undefined' || typeof Paho.MQTT === 'undefined') {
             console.error('❌ Paho MQTT library not loaded!');
-            this.updateConnectionStatus('offline', 'MQTT Library Failed to Load');
-            this.addLog('connection', 'error', 'Paho MQTT library not available. Check internet connection.');
+            this.updateConnectionStatus('offline', 'MQTT Library Not Available');
+            this.addLog('connection', 'error', 'Paho MQTT library failed to load. Check internet connection.');
             return;
         }
 
         try {
-            console.log('🔌 Attempting MQTT connection...');
+            console.log('🔌 Attempting MQTT connection to port 8084...');
             
             this.mqttClient = new Paho.MQTT.Client(
                 MQTT_CONFIG.broker,
@@ -305,11 +300,6 @@ class EWSDashboard {
             console.error('❌ MQTT Connection Error:', error);
             this.addLog('connection', 'error', `Connection failed: ${error.message}`);
             this.updateConnectionStatus('offline', 'Connection Failed');
-            
-            // Clear emergency timeout
-            if (this.emergencyHideTimeout) {
-                clearTimeout(this.emergencyHideTimeout);
-            }
         }
     }
 
@@ -317,11 +307,6 @@ class EWSDashboard {
         this.isConnected = true;
         this.updateConnectionStatus('connected', 'Connected to EWS');
         this.addLog('connection', 'success', 'Successfully connected to MQTT broker');
-        
-        // Clear emergency timeout
-        if (this.emergencyHideTimeout) {
-            clearTimeout(this.emergencyHideTimeout);
-        }
         
         // Subscribe to topics
         Object.values(MQTT_CONFIG.topics).forEach(topic => {
@@ -332,13 +317,8 @@ class EWSDashboard {
 
     handleConnectFailure(error) {
         this.isConnected = false;
-        this.updateConnectionStatus('offline', 'Connection Failed - Retrying...');
+        this.updateConnectionStatus('offline', 'Connection Failed');
         this.addLog('connection', 'error', `Connection failed: ${error.errorMessage}`);
-        
-        // Clear emergency timeout
-        if (this.emergencyHideTimeout) {
-            clearTimeout(this.emergencyHideTimeout);
-        }
         
         // Auto-retry connection after 5 seconds
         setTimeout(() => {
@@ -348,7 +328,7 @@ class EWSDashboard {
 
     handleConnectionLost(response) {
         this.isConnected = false;
-        this.updateConnectionStatus('offline', 'Connection lost');
+        this.updateConnectionStatus('offline', 'Connection Lost');
         this.addLog('connection', 'warning', `Connection lost: ${response.errorMessage}`);
         
         // Auto-reconnect after 3 seconds
@@ -357,30 +337,12 @@ class EWSDashboard {
         }, 3000);
     }
 
-    hideLoading() {
-        try {
-            const loadingOverlay = document.getElementById('loadingOverlay');
-            if (loadingOverlay) {
-                loadingOverlay.style.display = 'none';
-                console.log('✅ Loading overlay hidden');
-                // Clear emergency timeout
-                if (this.emergencyHideTimeout) {
-                    clearTimeout(this.emergencyHideTimeout);
-                }
-            } else {
-                console.warn('⚠️ Loading overlay element not found');
-            }
-        } catch (error) {
-            console.error('❌ Error hiding loading overlay:', error);
-        }
-    }
-
     handleMessage(message) {
         try {
             const topic = message.destinationName;
             const payload = JSON.parse(message.payloadString);
             
-            this.addLog('sensor', 'info', `Message received from: ${topic}`);
+            this.addLog('sensor', 'info', `Data received from: ${topic}`);
             
             switch(topic) {
                 case MQTT_CONFIG.topics.sensorData:
@@ -477,10 +439,6 @@ class EWSDashboard {
             statusElement.textContent = data.status.text || this.getStatusText(data.status.code);
             statusElement.className = `risk-${this.getStatusClass(data.status.code)}`;
         }
-        
-        if (data.status?.risk_score !== undefined) {
-            // Risk score is already handled above
-        }
     }
 
     updateHistoryData(data) {
@@ -520,28 +478,36 @@ class EWSDashboard {
 
     updateCharts() {
         // Update tilt chart
-        this.charts.tilt.data.labels = this.historyData.timestamps;
-        this.charts.tilt.data.datasets[0].data = this.historyData.tilt.roll;
-        this.charts.tilt.data.datasets[1].data = this.historyData.tilt.pitch;
-        this.charts.tilt.update('none');
+        if (this.charts.tilt) {
+            this.charts.tilt.data.labels = this.historyData.timestamps;
+            this.charts.tilt.data.datasets[0].data = this.historyData.tilt.roll;
+            this.charts.tilt.data.datasets[1].data = this.historyData.tilt.pitch;
+            this.charts.tilt.update('none');
+        }
         
         // Update soil chart
-        this.charts.soil.data.labels = this.historyData.timestamps;
-        this.charts.soil.data.datasets[0].data = this.historyData.soil;
-        this.charts.soil.update('none');
+        if (this.charts.soil) {
+            this.charts.soil.data.labels = this.historyData.timestamps;
+            this.charts.soil.data.datasets[0].data = this.historyData.soil;
+            this.charts.soil.update('none');
+        }
         
         // Update displacement chart
-        this.charts.displacement.data.labels = this.historyData.timestamps;
-        this.charts.displacement.data.datasets[0].data = this.historyData.displacement.x;
-        this.charts.displacement.data.datasets[1].data = this.historyData.displacement.y;
-        this.charts.displacement.data.datasets[2].data = this.historyData.displacement.z;
-        this.charts.displacement.data.datasets[3].data = this.historyData.displacement.total;
-        this.charts.displacement.update('none');
+        if (this.charts.displacement) {
+            this.charts.displacement.data.labels = this.historyData.timestamps;
+            this.charts.displacement.data.datasets[0].data = this.historyData.displacement.x;
+            this.charts.displacement.data.datasets[1].data = this.historyData.displacement.y;
+            this.charts.displacement.data.datasets[2].data = this.historyData.displacement.z;
+            this.charts.displacement.data.datasets[3].data = this.historyData.displacement.total;
+            this.charts.displacement.update('none');
+        }
         
         // Update risk chart
-        this.charts.risk.data.labels = this.historyData.timestamps;
-        this.charts.risk.data.datasets[0].data = this.historyData.risk;
-        this.charts.risk.update('none');
+        if (this.charts.risk) {
+            this.charts.risk.data.labels = this.historyData.timestamps;
+            this.charts.risk.data.datasets[0].data = this.historyData.risk;
+            this.charts.risk.update('none');
+        }
     }
 
     updateThresholds() {
@@ -732,10 +698,6 @@ class EWSDashboard {
         }
     }
 
-    hideLoading() {
-        document.getElementById('loadingOverlay').style.display = 'none';
-    }
-
     saveToLocalStorage() {
         const saveData = {
             thresholds: {
@@ -749,7 +711,7 @@ class EWSDashboard {
                 mqttInterval: document.getElementById('mqttInterval').value
             },
             history: this.historyData,
-            logs: this.logEntries.slice(0, 50) // Save only recent logs
+            logs: this.logEntries.slice(0, 50)
         };
         
         localStorage.setItem('ewsDashboard', JSON.stringify(saveData));
@@ -791,36 +753,3 @@ class EWSDashboard {
 document.addEventListener('DOMContentLoaded', () => {
     window.ewsDashboard = new EWSDashboard();
 });
-
-// Add some CSS for log badges
-const style = document.createElement('style');
-style.textContent = `
-    .log-badge {
-        padding: 2px 6px;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        font-weight: bold;
-    }
-    .log-connection { background: var(--secondary-color); color: white; }
-    .log-sensor { background: var(--success-color); color: white; }
-    .log-alert { background: var(--danger-color); color: white; }
-    .log-control { background: var(--warning-color); color: white; }
-    .log-level.success { color: var(--success-color); }
-    .log-level.warning { color: var(--warning-color); }
-    .log-level.error { color: var(--danger-color); }
-    .log-level.info { color: var(--secondary-color); }
-    
-    .alert-level.danger {
-        background: #ffeaea;
-        border-left: 4px solid var(--danger-color);
-        padding: 1rem;
-        border-radius: 4px;
-    }
-    .alert-level.warning {
-        background: #fff4e6;
-        border-left: 4px solid var(--warning-color);
-        padding: 1rem;
-        border-radius: 4px;
-    }
-`;
-document.head.appendChild(style);

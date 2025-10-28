@@ -1,7 +1,7 @@
-// MQTT Configuration
+// MQTT Configuration for WebSocket Secure (WSS) port 8084
 const MQTT_CONFIG = {
-    broker: "103.127.97.247", // Gunakan WebSocket Secure
-    port: 8084,
+    broker: "103.127.97.247",
+    port: 8084,  // WSS port dari broker Anda
     username: "rzkink_2554",
     password: "rizkink1234",
     clientId: "ews-dashboard-" + Math.random().toString(16).substr(2, 8),
@@ -14,7 +14,7 @@ const MQTT_CONFIG = {
     }
 };
 
-// Default Thresholds (will be updated from device)
+// Default Thresholds
 const DEFAULT_THRESHOLDS = {
     tiltWarning: 3.0,
     tiltDanger: 6.0,
@@ -29,36 +29,15 @@ const DEFAULT_THRESHOLDS = {
 // Chart Configuration
 const CHART_CONFIG = {
     tilt: {
-        maxDataPoints: 50,
-        colors: {
-            roll: 'rgba(231, 76, 60, 0.8)',
-            pitch: 'rgba(52, 152, 219, 0.8)'
-        }
+        maxDataPoints: 50
     },
     soil: {
-        maxDataPoints: 50,
-        color: 'rgba(39, 174, 96, 0.8)'
+        maxDataPoints: 50
     },
     displacement: {
-        maxDataPoints: 50,
-        colors: {
-            x: 'rgba(155, 89, 182, 0.8)',
-            y: 'rgba(241, 196, 15, 0.8)',
-            z: 'rgba(230, 126, 34, 0.8)',
-            total: 'rgba(52, 73, 94, 0.8)'
-        }
+        maxDataPoints: 50
     },
     risk: {
-        maxDataPoints: 50,
-        colors: {
-            low: 'rgba(39, 174, 96, 0.8)',
-            medium: 'rgba(241, 196, 15, 0.8)',
-            high: 'rgba(231, 76, 60, 0.8)'
-        }
+        maxDataPoints: 50
     }
 };
-
-// Export configuration
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { MQTT_CONFIG, DEFAULT_THRESHOLDS, CHART_CONFIG };
-}

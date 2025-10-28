@@ -485,38 +485,6 @@ body {
     text-align: right;
 }
 
-/* Loading Overlay */
-.loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(44, 62, 80, 0.95);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-    color: white;
-}
-
-.loading-overlay.hidden {
-    display: none !important;
-}
-
-.loading-spinner {
-    text-align: center;
-}
-
-.loading-spinner i {
-    font-size: 3rem;
-    margin-bottom: 1rem;
-}
-
-.loading-spinner p {
-    font-size: 1.2rem;
-}
-
 /* Responsive Design */
 @media (max-width: 768px) {
     .dashboard-container {
@@ -567,4 +535,33 @@ body {
     .sensor-card {
         padding: 1rem;
     }
+}
+
+/* Log badge styles */
+.log-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+}
+.log-connection { background: var(--secondary-color); color: white; }
+.log-sensor { background: var(--success-color); color: white; }
+.log-alert { background: var(--danger-color); color: white; }
+.log-control { background: var(--warning-color); color: white; }
+.log-level.success { color: var(--success-color); }
+.log-level.warning { color: var(--warning-color); }
+.log-level.error { color: var(--danger-color); }
+.log-level.info { color: var(--secondary-color); }
+
+.alert-level.danger {
+    background: #ffeaea;
+    border-left: 4px solid var(--danger-color);
+    padding: 1rem;
+    border-radius: 4px;
+}
+.alert-level.warning {
+    background: #fff4e6;
+    border-left: 4px solid var(--warning-color);
+    padding: 1rem;
+    border-radius: 4px;
 }

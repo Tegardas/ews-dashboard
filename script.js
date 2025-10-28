@@ -12,6 +12,9 @@ class EWSDashboard {
         };
         this.charts = {};
         this.logEntries = [];
+        this.reconnectAttempts = 0;
+        this.maxReconnectAttempts = 10;
+        this.reconnectInterval = 5000; // 5 seconds
         
         this.init();
     }
@@ -234,6 +237,12 @@ class EWSDashboard {
         document.getElementById('clearLogs').addEventListener('click', () => this.clearLogs());
         document.getElementById('exportLogs').addEventListener('click', () => this.exportLogs());
         
+        // Manual reconnect button (tambahkan di HTML nanti)
+        const reconnectBtn = document.getElementById('reconnectBtn');
+        if (reconnectBtn) {
+            reconnectBtn.addEventListener('click', () => this.manualReconnect());
+        }
+        
         // Modal controls
         document.querySelector('.close').addEventListener('click', () => this.hideAlert());
         document.getElementById('acknowledgeAlert').addEventListener('click', () => this.hideAlert());
@@ -253,11 +262,21 @@ class EWSDashboard {
             console.error('❌ Paho MQTT library not loaded!');
             this.updateConnectionStatus('offline', 'MQTT Library Not Available');
             this.addLog('connection', 'error', 'Paho MQTT library failed to load. Check internet connection.');
+            
+            // Retry after 10 seconds if library not loaded
+            setTimeout(() => {
+                this.connectMQTT();
+            }, 10000);
             return;
         }
 
         try {
             console.log('🔌 Attempting MQTT connection to port 8084...');
+            
+            // Clear existing client if any
+            if (this.mqttClient && this.mqttClient.isConnected()) {
+                this.mqttClient.disconnect();
+            }
             
             this.mqttClient = new Paho.MQTT.Client(
                 MQTT_CONFIG.broker,
@@ -290,21 +309,25 @@ class EWSDashboard {
                 timeout: 10,
                 keepAliveInterval: 30,
                 cleanSession: true,
-                reconnect: true
+                reconnect: false // We handle reconnection manually
             };
 
             this.updateConnectionStatus('connecting', 'Connecting to MQTT Broker...');
+            this.addLog('connection', 'info', `Attempting connection to ${MQTT_CONFIG.broker}:${MQTT_CONFIG.port} (Attempt ${this.reconnectAttempts + 1})`);
+            
             this.mqttClient.connect(options);
 
         } catch (error) {
             console.error('❌ MQTT Connection Error:', error);
             this.addLog('connection', 'error', `Connection failed: ${error.message}`);
             this.updateConnectionStatus('offline', 'Connection Failed');
+            this.scheduleReconnect();
         }
     }
 
     handleConnectSuccess() {
         this.isConnected = true;
+        this.reconnectAttempts = 0; // Reset counter on successful connection
         this.updateConnectionStatus('connected', 'Connected to EWS');
         this.addLog('connection', 'success', 'Successfully connected to MQTT broker');
         
@@ -317,24 +340,47 @@ class EWSDashboard {
 
     handleConnectFailure(error) {
         this.isConnected = false;
-        this.updateConnectionStatus('offline', 'Connection Failed');
-        this.addLog('connection', 'error', `Connection failed: ${error.errorMessage}`);
+        this.reconnectAttempts++;
         
-        // Auto-retry connection after 5 seconds
-        setTimeout(() => {
-            this.connectMQTT();
-        }, 5000);
+        const errorMessage = error.errorMessage || 'Unknown error';
+        this.updateConnectionStatus('offline', `Connection Failed (Attempt ${this.reconnectAttempts})`);
+        this.addLog('connection', 'error', `Connection failed: ${errorMessage}`);
+        
+        this.scheduleReconnect();
     }
 
     handleConnectionLost(response) {
         this.isConnected = false;
-        this.updateConnectionStatus('offline', 'Connection Lost');
+        this.reconnectAttempts++;
+        
+        this.updateConnectionStatus('offline', `Connection Lost (Attempt ${this.reconnectAttempts})`);
         this.addLog('connection', 'warning', `Connection lost: ${response.errorMessage}`);
         
-        // Auto-reconnect after 3 seconds
+        this.scheduleReconnect();
+    }
+
+    scheduleReconnect() {
+        if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+            this.addLog('connection', 'error', `Max reconnection attempts (${this.maxReconnectAttempts}) reached. Stopping auto-reconnect.`);
+            this.updateConnectionStatus('offline', 'Max Reconnect Attempts Reached');
+            return;
+        }
+
+        // Calculate next reconnect delay with exponential backoff
+        const delay = Math.min(this.reconnectInterval * Math.pow(1.5, this.reconnectAttempts - 1), 30000); // Max 30 seconds
+        
+        this.addLog('connection', 'info', `Scheduling reconnect in ${delay / 1000} seconds (Attempt ${this.reconnectAttempts + 1})`);
+        
         setTimeout(() => {
+            this.addLog('connection', 'info', `Executing auto-reconnect attempt ${this.reconnectAttempts + 1}`);
             this.connectMQTT();
-        }, 3000);
+        }, delay);
+    }
+
+    manualReconnect() {
+        this.reconnectAttempts = 0; // Reset attempts on manual reconnect
+        this.addLog('connection', 'info', 'Manual reconnect requested by user');
+        this.connectMQTT();
     }
 
     handleMessage(message) {

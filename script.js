@@ -1,4 +1,7 @@
 class EWSDashboard {
+    // ulala uhuuyy
+    // eeffb
+    // efnefef
     constructor() {
         this.mqttClient = null;
         this.isConnected = false;

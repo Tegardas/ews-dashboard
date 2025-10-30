@@ -1,6 +1,6 @@
-// MQTT Configuration for WebSocket Secure (WSS) port 8084
+// MQTT Configuration for WebSocket Secure (WSS) port 8085
 const MQTT_CONFIG = {
-    broker: "http://broker.avisha.id",
+    broker: "broker.avisha.id",
     port: 8085,
     username: "rzkink_2554",
     password: "rizkink1234",

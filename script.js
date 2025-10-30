@@ -350,7 +350,7 @@ class EWSDashboard {
             console.log('🔌 Attempting MQTT connection with MQTT.js...');
             
             if (this.mqttClient) {
-                this.mqttClient.end();
+                this.mqttClient.close();
             }
             
             const options = {

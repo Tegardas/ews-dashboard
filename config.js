@@ -1,7 +1,7 @@
 // MQTT Configuration for WebSocket Secure (WSS) port 8084
 const MQTT_CONFIG = {
     broker: "103.127.97.247",
-    port: 8084,  // WSS port dari broker Anda
+    port: 8085,  // WSS port dari broker Anda
     username: "rzkink_2554",
     password: "rizkink1234",
     clientId: "ews-dashboard-" + Math.random().toString(16).substr(2, 8),

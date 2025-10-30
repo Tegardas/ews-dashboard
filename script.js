@@ -364,8 +364,8 @@ class EWSDashboard {
 
             // Connect using WebSocket
             const url = `wss://${MQTT_CONFIG.broker}:${MQTT_CONFIG.port}/mqtt`;
-            // this.mqttClient = mqtt.connect(url, options);
-            this.mqttClient = new WebSocket(url);
+            this.mqttClient = mqtt.connect(url, options);
+            // this.mqttClient = new WebSocket(url);
 
             this.mqttClient.on('connect', () => {
                 console.log('✅ MQTT Connected successfully');
@@ -424,6 +424,8 @@ class EWSDashboard {
             this.mqttClient.subscribe(topic, (err) => {
                 if (!err) {
                     this.addLog('connection', 'info', `Subscribed to: ${topic}`);
+                }else {
+                    this.addLog('connection', 'error', `Failed to subscribe to ${topic}: ${err.message}`);
                 }
             });
         });
@@ -432,6 +434,7 @@ class EWSDashboard {
     publishMessage(topic, message) {
         if (this.mqttClient && this.isConnected) {
             this.mqttClient.publish(topic, message);
+            this.addLog('control', 'info', `Message published to ${topic}`);
         } else {
             this.addLog('control', 'error', 'Cannot publish - not connected');
         }

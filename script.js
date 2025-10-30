@@ -8,14 +8,14 @@ class EWSDashboard {
             tilt: { roll: [], pitch: [] },
             soil: [],
             displacement: { x: [], y: [], z: [], total: [] },
-            weather : {humd: [], temp: [], daily: [], hourly: []},
+            weather: { humd: [], temp: [], daily: [], hourly: [] },
             risk: []
         };
         this.charts = {};
         this.logEntries = [];
         this.reconnectAttempts = 0;
         this.maxReconnectAttempts = 10;
-        this.reconnectInterval = 5000; // 5 seconds
+        this.reconnectInterval = 5000;
         
         this.init();
     }
@@ -23,6 +23,12 @@ class EWSDashboard {
     init() {
         console.log('🚀 Initializing EWS Dashboard...');
         
+        if (typeof mqtt === 'undefined') {
+            console.error('❌ MQTT.js not loaded!');
+            this.addLog('connection', 'error', 'MQTT.js library failed to load');
+            return;
+        }
+
         // Initialize components
         this.initializeCharts();
         this.setupEventListeners();
@@ -350,7 +356,8 @@ class EWSDashboard {
             console.log('🔌 Attempting MQTT connection with MQTT.js...');
             
             if (this.mqttClient) {
-                this.mqttClient.close();
+                this.mqttClient.end(true); // Force disconnect
+                this.mqttClient = null;
             }
             
             const options = {
@@ -358,8 +365,13 @@ class EWSDashboard {
                 password: MQTT_CONFIG.password,
                 clientId: MQTT_CONFIG.clientId,
                 clean: true,
-                reconnectPeriod: 5000,
-                connectTimeout: 10000
+                reconnectPeriod: 0, // We handle reconnection manually
+                connectTimeout: 10000,
+                keepalive: 30,
+                protocolVersion: 4, // MQTT 3.1.1
+                properties: {
+                    sessionExpiryInterval: 3600 // 1 hour
+                }
             };
 
             // Connect using WebSocket
@@ -384,6 +396,21 @@ class EWSDashboard {
             this.mqttClient.on('error', (error) => {
                 console.log('❌ MQTT Connection error:', error);
                 this.handleConnectFailure(error);
+            });
+
+            this.mqttClient.on('reconnect', () => {
+                console.log('🔄 MQTT Reconnecting...');
+                this.addLog('connection', 'info', 'MQTT client attempting reconnect');
+            });
+
+            this.mqttClient.on('offline', () => {
+                console.log('🔴 MQTT Offline');
+                this.updateConnectionStatus('offline', 'Offline');
+            });
+
+            this.mqttClient.on('end', () => {
+                console.log('🔚 MQTT Connection ended');
+                this.addLog('connection', 'info', 'MQTT connection ended');
             });
 
             this.updateConnectionStatus('connecting', 'Connecting to MQTT Broker...');
@@ -421,11 +448,13 @@ class EWSDashboard {
         
         // Subscribe to topics
         Object.values(MQTT_CONFIG.topics).forEach(topic => {
-            this.mqttClient.subscribe(topic, (err) => {
-                if (!err) {
+            this.mqttClient.subscribe(topic, { qos: 0 }, (error) => {
+                if (error) {
+                    console.error(`❌ Failed to subscribe to ${topic}:`, error);
+                    this.addLog('connection', 'error', `Failed to subscribe to ${topic}: ${error.message}`);
+                } else {
+                    console.log(`✅ Subscribed to: ${topic}`);
                     this.addLog('connection', 'info', `Subscribed to: ${topic}`);
-                }else {
-                    this.addLog('connection', 'error', `Failed to subscribe to ${topic}: ${err.message}`);
                 }
             });
         });
@@ -433,10 +462,21 @@ class EWSDashboard {
 
     publishMessage(topic, message) {
         if (this.mqttClient && this.isConnected) {
-            this.mqttClient.publish(topic, message);
-            this.addLog('control', 'info', `Message published to ${topic}`);
+            try {
+                this.mqttClient.publish(topic, message, { qos: 0 }, (error) => {
+                    if (error) {
+                        console.error('❌ Publish error:', error);
+                        this.addLog('control', 'error', `Failed to publish to ${topic}: ${error.message}`);
+                    } else {
+                        this.addLog('control', 'info', `Message published to ${topic}`);
+                    }
+                });
+            } catch (error) {
+                console.error('❌ Publish exception:', error);
+                this.addLog('control', 'error', `Publish failed: ${error.message}`);
+            }
         } else {
-            this.addLog('control', 'error', 'Cannot publish - not connected');
+            this.addLog('control', 'error', 'Cannot publish - MQTT not connected');
         }
     }
 
@@ -462,13 +502,6 @@ class EWSDashboard {
         
         const buffer = new Uint8Array(packet);
         this.mqttClient.send(buffer);
-    }
-
-    handleConnectSuccess() {
-        this.isConnected = true;
-        this.reconnectAttempts = 0; // Reset counter on successful connection
-        this.updateConnectionStatus('connected', 'Connected to EWS');
-        this.addLog('connection', 'success', 'Successfully connected to MQTT broker');
     }
 
     handleConnectFailure(error) {

@@ -363,8 +363,9 @@ class EWSDashboard {
             };
 
             // Connect using WebSocket
-            const url = `ws://${MQTT_CONFIG.broker}:${MQTT_CONFIG.port}`;
-            this.mqttClient = mqtt.connect(url, options);
+            const url = `wss://${MQTT_CONFIG.broker}:${MQTT_CONFIG.port}/mqtt`;
+            // this.mqttClient = mqtt.connect(url, options);
+            this.mqttClient = new WebSocket(url);
 
             this.mqttClient.on('connect', () => {
                 console.log('✅ MQTT Connected successfully');

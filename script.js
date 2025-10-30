@@ -347,42 +347,46 @@ class EWSDashboard {
 
     connectMQTT() {
         try {
-            console.log('🔌 Attempting MQTT connection via WebSocket...');
+            console.log('🔌 Attempting MQTT connection with MQTT.js...');
             
-            // Close existing connection if any
             if (this.mqttClient) {
-                this.mqttClient.close();
+                this.mqttClient.end();
             }
             
-            // Create WebSocket connection for MQTT over WebSockets
-            const wsProtocol = MQTT_CONFIG.port === 8085 ? 'wss' : 'ws';
-            const wsUrl = `${wsProtocol}://${MQTT_CONFIG.broker}:${MQTT_CONFIG.port}/mqtt`;
-            
-            this.mqttClient = new WebSocket(wsUrl);
-            
-            this.mqttClient.onopen = () => {
-                console.log('✅ WebSocket connected, authenticating MQTT...');
-                this.authenticateMQTT();
+            const options = {
+                username: MQTT_CONFIG.username,
+                password: MQTT_CONFIG.password,
+                clientId: MQTT_CONFIG.clientId,
+                clean: true,
+                reconnectPeriod: 5000,
+                connectTimeout: 10000
             };
 
-            this.mqttClient.onmessage = (event) => {
-                this.handleWebSocketMessage(event);
-            };
+            // Connect using WebSocket
+            const url = `ws://${MQTT_CONFIG.broker}:${MQTT_CONFIG.port}`;
+            this.mqttClient = mqtt.connect(url, options);
 
-            this.mqttClient.onclose = (event) => {
-                console.log('🔌 WebSocket closed:', event);
-                this.handleConnectionLost({
-                    errorMessage: `WebSocket closed: ${event.code} ${event.reason || 'No reason'}`
-                });
-            };
+            this.mqttClient.on('connect', () => {
+                console.log('✅ MQTT Connected successfully');
+                this.handleConnectSuccess();
+            });
 
-            this.mqttClient.onerror = (error) => {
-                console.log('❌ WebSocket error:', error);
+            this.mqttClient.on('message', (topic, message) => {
+                this.handleMQTTMessage(topic, message);
+            });
+
+            this.mqttClient.on('close', () => {
+                console.log('🔌 MQTT Connection closed');
+                this.handleConnectionLost({ errorMessage: 'MQTT connection closed' });
+            });
+
+            this.mqttClient.on('error', (error) => {
+                console.log('❌ MQTT Connection error:', error);
                 this.handleConnectFailure(error);
-            };
+            });
 
             this.updateConnectionStatus('connecting', 'Connecting to MQTT Broker...');
-            this.addLog('connection', 'info', `Attempting WebSocket connection to ${wsUrl} (Attempt ${this.reconnectAttempts + 1})`);
+            this.addLog('connection', 'info', `Attempting MQTT connection to ${url}`);
 
         } catch (error) {
             console.error('❌ MQTT Connection Error:', error);
@@ -392,147 +396,44 @@ class EWSDashboard {
         }
     }
 
-    authenticateMQTT() {
-        // MQTT Connect packet structure
-        const protocolName = "MQTT";
-        const protocolLevel = 4; // MQTT 3.1.1
-        const connectFlags = 0xC2; // Clean session + username + password
-        const keepAlive = 60; // 60 seconds
-
-        // Build CONNECT packet
-        let packet = [];
-        
-        // Fixed header
-        packet.push(0x10); // CONNECT packet type
-        
-        // Variable header
-        packet.push(protocolName.length >> 8, protocolName.length & 0xFF);
-        packet.push(...Array.from(protocolName).map(c => c.charCodeAt(0)));
-        packet.push(protocolLevel);
-        packet.push(connectFlags);
-        packet.push(keepAlive >> 8, keepAlive & 0xFF);
-        
-        // Payload - Client ID
-        const clientId = MQTT_CONFIG.clientId;
-        packet.push(clientId.length >> 8, clientId.length & 0xFF);
-        packet.push(...Array.from(clientId).map(c => c.charCodeAt(0)));
-        
-        // Payload - Username
-        const username = MQTT_CONFIG.username;
-        packet.push(username.length >> 8, username.length & 0xFF);
-        packet.push(...Array.from(username).map(c => c.charCodeAt(0)));
-        
-        // Payload - Password
-        const password = MQTT_CONFIG.password;
-        packet.push(password.length >> 8, password.length & 0xFF);
-        packet.push(...Array.from(password).map(c => c.charCodeAt(0)));
-        
-        // Set remaining length
-        const remainingLength = packet.length - 1;
-        packet[1] = remainingLength;
-        
-        // Convert to ArrayBuffer and send
-        const buffer = new Uint8Array(packet);
-        this.mqttClient.send(buffer);
-    }
-
-    handleWebSocketMessage(event) {
+    handleMQTTMessage(topic, message) {
         try {
-            if (event.data instanceof ArrayBuffer) {
-                const data = new Uint8Array(event.data);
-                const packetType = data[0] >> 4;
-                
-                switch(packetType) {
-                    case 2: // CONNACK
-                        this.handleConnAck(data);
-                        break;
-                    case 3: // PUBLISH
-                        this.handlePublish(data);
-                        break;
-                    case 9: // SUBACK
-                        console.log('✅ Subscription acknowledged');
-                        break;
-                    default:
-                        console.log('📨 Received MQTT packet type:', packetType);
-                }
-            } else if (typeof event.data === 'string') {
-                // Handle string messages (if any)
-                console.log('📨 Received string message:', event.data);
-            }
-        } catch (error) {
-            console.error('Error processing WebSocket message:', error);
-            this.addLog('system', 'error', `Failed to process message: ${error.message}`);
-        }
-    }
-
-    handleConnAck(data) {
-        const returnCode = data[3];
-        
-        if (returnCode === 0) {
-            console.log('✅ MQTT Connected successfully');
-            this.handleConnectSuccess();
+            const payload = JSON.parse(message.toString());
+            console.log('📨 MQTT Message received:', topic);
             
-            // Subscribe to topics
-            this.subscribeToTopics();
-        } else {
-            const errorMessages = [
-                'Connection accepted',
-                'Unacceptable protocol version',
-                'Identifier rejected',
-                'Server unavailable',
-                'Bad username or password',
-                'Not authorized'
-            ];
-            const errorMessage = errorMessages[returnCode] || `Unknown error: ${returnCode}`;
-            throw new Error(`MQTT Connection failed: ${errorMessage}`);
+            this.handleMessage({
+                destinationName: topic,
+                payloadString: message.toString()
+            });
+            
+        } catch (error) {
+            console.error('Error processing MQTT message:', error);
+            this.addLog('sensor', 'error', `Failed to process MQTT message: ${error.message}`);
         }
     }
 
-    handlePublish(data) {
-        // Parse MQTT PUBLISH packet
-        let offset = 1;
+    handleConnectSuccess() {
+        this.isConnected = true;
+        this.reconnectAttempts = 0;
+        this.updateConnectionStatus('connected', 'Connected to EWS');
+        this.addLog('connection', 'success', 'Successfully connected to MQTT broker');
         
-        // Decode remaining length
-        let multiplier = 1;
-        let remainingLength = 0;
-        let encodedByte;
-        do {
-            encodedByte = data[offset++];
-            remainingLength += (encodedByte & 127) * multiplier;
-            multiplier *= 128;
-        } while ((encodedByte & 128) !== 0);
-        
-        // Read topic length
-        const topicLength = (data[offset] << 8) | data[offset + 1];
-        offset += 2;
-        
-        // Read topic
-        let topic = '';
-        for (let i = 0; i < topicLength; i++) {
-            topic += String.fromCharCode(data[offset++]);
-        }
-        
-        // Read payload
-        const payloadLength = remainingLength - (topicLength + 2);
-        let payloadString = '';
-        for (let i = 0; i < payloadLength; i++) {
-            payloadString += String.fromCharCode(data[offset++]);
-        }
-        
-        console.log('📨 MQTT Message received:', topic);
-        
-        // Handle the message
-        this.handleMessage({
-            destinationName: topic,
-            payloadString: payloadString
-        });
-    }
-
-    subscribeToTopics() {
+        // Subscribe to topics
         Object.values(MQTT_CONFIG.topics).forEach(topic => {
-            this.subscribe(topic);
-            this.addLog('connection', 'info', `Subscribed to: ${topic}`);
+            this.mqttClient.subscribe(topic, (err) => {
+                if (!err) {
+                    this.addLog('connection', 'info', `Subscribed to: ${topic}`);
+                }
+            });
         });
+    }
+
+    publishMessage(topic, message) {
+        if (this.mqttClient && this.isConnected) {
+            this.mqttClient.publish(topic, message);
+        } else {
+            this.addLog('control', 'error', 'Cannot publish - not connected');
+        }
     }
 
     subscribe(topic) {

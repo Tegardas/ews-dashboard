@@ -763,13 +763,28 @@ class EWSDashboard {
             displacement_danger: parseFloat(document.getElementById('displacement_danger').value) || DEFAULT_THRESHOLDS.displacementDanger
         };
 
+        // Validasi nilai sebelum dikirim
         const message = {
-            ...thresholds,
+            tilt_warning: thresholds.tilt_warning,
+            tilt_danger: thresholds.tilt_danger,
+            soil_warning: thresholds.soil_warning,
+            soil_danger: thresholds.soil_danger,
+            humidity_warning: thresholds.humidity_warning,
+            displacement_warning: thresholds.displacement_warning,
+            displacement_danger: thresholds.displacement_danger,
             timestamp: Date.now()
         };
 
-        this.publishMessage(MQTT_CONFIG.topics.control + '/threshold', JSON.stringify(message));
-        this.addLog('control', 'info', `Thresholds updated: ${JSON.stringify(thresholds)}`);
+        console.log('Sending thresholds:', message); // Debug log
+        
+        try {
+            const jsonMessage = JSON.stringify(message);
+            this.publishMessage(MQTT_CONFIG.topics.control + '/threshold', jsonMessage);
+            this.addLog('control', 'info', `Thresholds updated: ${jsonMessage}`);
+        } catch (error) {
+            console.error('Error sending thresholds:', error);
+            this.addLog('control', 'error', `Failed to update thresholds: ${error.message}`);
+        }
         
         // Update MQTT interval if changed
         const mqttInterval = parseInt(document.getElementById('mqttInterval').value);

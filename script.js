@@ -1,7 +1,4 @@
 class EWSDashboard {
-    // ulala uhuuyy
-    // eeffb
-    // efnefef
     constructor() {
         this.mqttClient = null;
         this.isConnected = false;
@@ -754,37 +751,22 @@ class EWSDashboard {
         }
 
         const thresholds = {
-            tilt_warning: parseFloat(document.getElementById('tilt_warning').value) || DEFAULT_THRESHOLDS.tiltWarning,
-            tilt_danger: parseFloat(document.getElementById('tilt_danger').value) || DEFAULT_THRESHOLDS.tiltDanger,
-            soil_warning: parseInt(document.getElementById('soil_warning').value) || DEFAULT_THRESHOLDS.soilWarning,
-            soil_danger: parseInt(document.getElementById('soil_danger').value) || DEFAULT_THRESHOLDS.soilDanger,
-            humidity_warning: parseInt(document.getElementById('humidity_warning').value) || DEFAULT_THRESHOLDS.humidityWarning,
-            displacement_warning: parseFloat(document.getElementById('displacement_warning').value) || DEFAULT_THRESHOLDS.displacementWarning,
-            displacement_danger: parseFloat(document.getElementById('displacement_danger').value) || DEFAULT_THRESHOLDS.displacementDanger
+            tilt_warning: parseFloat(document.getElementById('tiltWarning').value) || DEFAULT_THRESHOLDS.tiltWarning,
+            tilt_danger: parseFloat(document.getElementById('tiltDanger').value) || DEFAULT_THRESHOLDS.tiltDanger,
+            soil_warning: parseInt(document.getElementById('soilWarning').value) || DEFAULT_THRESHOLDS.soilWarning,
+            soil_danger: parseInt(document.getElementById('soilDanger').value) || DEFAULT_THRESHOLDS.soilDanger,
+            humidity_warning: parseInt(document.getElementById('humidityWarning').value) || DEFAULT_THRESHOLDS.humidityWarning,
+            displacement_warning: parseFloat(document.getElementById('displacementWarning').value) || DEFAULT_THRESHOLDS.displacementWarning,
+            displacement_danger: parseFloat(document.getElementById('displacementDanger').value) || DEFAULT_THRESHOLDS.displacementDanger
         };
 
-        // Validasi nilai sebelum dikirim
         const message = {
-            tilt_warning: thresholds.tilt_warning,
-            tilt_danger: thresholds.tilt_danger,
-            soil_warning: thresholds.soil_warning,
-            soil_danger: thresholds.soil_danger,
-            humidity_warning: thresholds.humidity_warning,
-            displacement_warning: thresholds.displacement_warning,
-            displacement_danger: thresholds.displacement_danger,
+            ...thresholds,
             timestamp: Date.now()
         };
 
-        console.log('Sending thresholds:', message); // Debug log
-        
-        try {
-            const jsonMessage = JSON.stringify(message);
-            this.publishMessage(MQTT_CONFIG.topics.control + '/threshold', jsonMessage);
-            this.addLog('control', 'info', `Thresholds updated: ${jsonMessage}`);
-        } catch (error) {
-            console.error('Error sending thresholds:', error);
-            this.addLog('control', 'error', `Failed to update thresholds: ${error.message}`);
-        }
+        this.publishMessage(MQTT_CONFIG.topics.control + '/threshold', JSON.stringify(message));
+        this.addLog('control', 'info', `Thresholds updated: ${JSON.stringify(thresholds)}`);
         
         // Update MQTT interval if changed
         const mqttInterval = parseInt(document.getElementById('mqttInterval').value);
@@ -816,55 +798,25 @@ class EWSDashboard {
 
     publishMessage(topic, message) {
         if (this.mqttClient && this.mqttClient.readyState === WebSocket.OPEN) {
-            try {
-                // Encode topic and message to UTF-8
-                const topicEncoded = new TextEncoder().encode(topic);
-                const messageEncoded = new TextEncoder().encode(message);
-                
-                // Calculate remaining length (topic length + 2 + message length)
-                const remainingLength = topicEncoded.length + 2 + messageEncoded.length;
-                
-                // Create packet array
-                let packet = [];
-                
-                // Fixed header: PUBLISH (0x30) + QoS 0
-                packet.push(0x30);
-                
-                // Encode remaining length (variable length encoding)
-                let lengthBytes = [];
-                let x = remainingLength;
-                do {
-                    let encodedByte = x % 128;
-                    x = Math.floor(x / 128);
-                    if (x > 0) {
-                        encodedByte |= 128;
-                    }
-                    lengthBytes.push(encodedByte);
-                } while (x > 0);
-                
-                packet.push(...lengthBytes);
-                
-                // Variable header - Topic length (2 bytes)
-                packet.push(topicEncoded.length >> 8);
-                packet.push(topicEncoded.length & 0xFF);
-                
-                // Topic name
-                packet.push(...topicEncoded);
-                
-                // Payload - Message
-                packet.push(...messageEncoded);
-                
-                // Convert to Uint8Array and send
-                const buffer = new Uint8Array(packet);
-                this.mqttClient.send(buffer);
-                
-                console.log(`MQTT Published to: ${topic}, Message: ${message}`);
-                
-            } catch (error) {
-                console.error('Error in publishMessage:', error);
-            }
-        } else {
-            console.error('MQTT client not connected');
+            // MQTT PUBLISH packet
+            let packet = [];
+            
+            // Fixed header
+            packet.push(0x30); // PUBLISH packet type + QoS 0
+            
+            // Variable header - Topic name
+            packet.push(topic.length >> 8, topic.length & 0xFF);
+            packet.push(...Array.from(topic).map(c => c.charCodeAt(0)));
+            
+            // Payload
+            packet.push(...Array.from(message).map(c => c.charCodeAt(0)));
+            
+            // Set remaining length
+            const remainingLength = packet.length - 1;
+            packet[1] = remainingLength;
+            
+            const buffer = new Uint8Array(packet);
+            this.mqttClient.send(buffer);
         }
     }
 
@@ -998,13 +950,13 @@ class EWSDashboard {
     saveToLocalStorage() {
         const saveData = {
             thresholds: {
-                tiltWarning: document.getElementById('tilt_warning').value,
-                tiltDanger: document.getElementById('tilt_danger').value,
-                soilWarning: document.getElementById('soil_warning').value,
-                soilDanger: document.getElementById('soil_danger').value,
-                humidityWarning: document.getElementById('humidity_warning').value,
-                displacementWarning: document.getElementById('displacement_warning').value,
-                displacementDanger: document.getElementById('displacement_danger').value,
+                tiltWarning: document.getElementById('tiltWarning').value,
+                tiltDanger: document.getElementById('tiltDanger').value,
+                soilWarning: document.getElementById('soilWarning').value,
+                soilDanger: document.getElementById('soilDanger').value,
+                humidityWarning: document.getElementById('humidityWarning').value,
+                displacementWarning: document.getElementById('displacementWarning').value,
+                displacementDanger: document.getElementById('displacementDanger').value,
                 mqttInterval: document.getElementById('mqttInterval').value
             },
             history: this.historyData,

@@ -816,25 +816,55 @@ class EWSDashboard {
 
     publishMessage(topic, message) {
         if (this.mqttClient && this.mqttClient.readyState === WebSocket.OPEN) {
-            // MQTT PUBLISH packet
-            let packet = [];
-            
-            // Fixed header
-            packet.push(0x30); // PUBLISH packet type + QoS 0
-            
-            // Variable header - Topic name
-            packet.push(topic.length >> 8, topic.length & 0xFF);
-            packet.push(...Array.from(topic).map(c => c.charCodeAt(0)));
-            
-            // Payload
-            packet.push(...Array.from(message).map(c => c.charCodeAt(0)));
-            
-            // Set remaining length
-            const remainingLength = packet.length - 1;
-            packet[1] = remainingLength;
-            
-            const buffer = new Uint8Array(packet);
-            this.mqttClient.send(buffer);
+            try {
+                // Encode topic and message to UTF-8
+                const topicEncoded = new TextEncoder().encode(topic);
+                const messageEncoded = new TextEncoder().encode(message);
+                
+                // Calculate remaining length (topic length + 2 + message length)
+                const remainingLength = topicEncoded.length + 2 + messageEncoded.length;
+                
+                // Create packet array
+                let packet = [];
+                
+                // Fixed header: PUBLISH (0x30) + QoS 0
+                packet.push(0x30);
+                
+                // Encode remaining length (variable length encoding)
+                let lengthBytes = [];
+                let x = remainingLength;
+                do {
+                    let encodedByte = x % 128;
+                    x = Math.floor(x / 128);
+                    if (x > 0) {
+                        encodedByte |= 128;
+                    }
+                    lengthBytes.push(encodedByte);
+                } while (x > 0);
+                
+                packet.push(...lengthBytes);
+                
+                // Variable header - Topic length (2 bytes)
+                packet.push(topicEncoded.length >> 8);
+                packet.push(topicEncoded.length & 0xFF);
+                
+                // Topic name
+                packet.push(...topicEncoded);
+                
+                // Payload - Message
+                packet.push(...messageEncoded);
+                
+                // Convert to Uint8Array and send
+                const buffer = new Uint8Array(packet);
+                this.mqttClient.send(buffer);
+                
+                console.log(`MQTT Published to: ${topic}, Message: ${message}`);
+                
+            } catch (error) {
+                console.error('Error in publishMessage:', error);
+            }
+        } else {
+            console.error('MQTT client not connected');
         }
     }
 

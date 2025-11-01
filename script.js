@@ -8,7 +8,7 @@ class EWSDashboard {
             tilt: { roll: [], pitch: [] },
             soil: [],
             displacement: { x: [], y: [], z: [], total: [] },
-            weather: { humd: [], temp: [], dailyrain: [], hourlyrain: [] },
+            weather: { humd: [], temp: [], daily: [], hourly: [] },
             risk: []
         };
         this.charts = {};
@@ -45,281 +45,444 @@ class EWSDashboard {
         console.log('📊 Initializing charts...');
         
         // Wait for DOM to be fully ready
-        setTimeout(() => {
-            try {
-                // Tilt Chart
-                const tiltCanvas = document.getElementById('tiltChart');
-                if (tiltCanvas && typeof Chart !== 'undefined') {
-                    this.charts.tilt = new Chart(tiltCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: [],
-                            datasets: [
-                                {
-                                    label: 'Roll',
-                                    data: [],
-                                    borderColor: 'rgba(231, 76, 60, 0.8)',
-                                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                },
-                                {
-                                    label: 'Pitch',
-                                    data: [],
-                                    borderColor: 'rgba(52, 152, 219, 0.8)',
-                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: true }
-                            },
-                            scales: {
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'Angle (°)'
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    console.log('✅ Tilt chart initialized');
-                }
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => this.createCharts(), 100);
+            });
+        } else {
+            setTimeout(() => this.createCharts(), 300);
+        }
+    }
 
-                // Soil Moisture Chart
-                const soilCanvas = document.getElementById('soilChart');
-                if (soilCanvas && typeof Chart !== 'undefined') {
-                    this.charts.soil = new Chart(soilCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: [],
-                            datasets: [{
-                                label: 'Soil Moisture',
+    createCharts() {
+        console.log('🎨 Creating charts...');
+        
+        try {
+            // 1. Tilt Chart - FIXED
+            const tiltCanvas = document.getElementById('tiltChart');
+            if (tiltCanvas) {
+                this.charts.tilt = new Chart(tiltCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Roll',
                                 data: [],
-                                borderColor: 'rgba(39, 174, 96, 0.8)',
-                                backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                                borderColor: 'rgb(231, 76, 60)',
+                                backgroundColor: 'rgba(231, 76, 60, 0.1)',
+                                borderWidth: 2,
                                 tension: 0.4,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: true }
+                                fill: true,
+                                pointRadius: 3,
+                                pointBackgroundColor: 'rgb(231, 76, 60)'
                             },
-                            scales: {
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'Moisture (%)'
-                                    },
-                                    min: 0,
-                                    max: 100
-                                }
-                            }
-                        }
-                    });
-                    console.log('✅ Soil chart initialized');
-                }
-
-                // Displacement Chart
-                const displacementCanvas = document.getElementById('displacementChart');
-                if (displacementCanvas && typeof Chart !== 'undefined') {
-                    this.charts.displacement = new Chart(displacementCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: [],
-                            datasets: [
-                                {
-                                    label: 'X Axis',
-                                    data: [],
-                                    borderColor: 'rgba(155, 89, 182, 0.8)',
-                                    backgroundColor: 'rgba(155, 89, 182, 0.1)',
-                                    tension: 0.4,
-                                    fill: false
-                                },
-                                {
-                                    label: 'Y Axis',
-                                    data: [],
-                                    borderColor: 'rgba(241, 196, 15, 0.8)',
-                                    backgroundColor: 'rgba(241, 196, 15, 0.1)',
-                                    tension: 0.4,
-                                    fill: false
-                                },
-                                {
-                                    label: 'Z Axis',
-                                    data: [],
-                                    borderColor: 'rgba(230, 126, 34, 0.8)',
-                                    backgroundColor: 'rgba(230, 126, 34, 0.1)',
-                                    tension: 0.4,
-                                    fill: false
-                                },
-                                {
-                                    label: 'Total',
-                                    data: [],
-                                    borderColor: 'rgba(52, 73, 94, 0.8)',
-                                    backgroundColor: 'rgba(52, 73, 94, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: true }
-                            },
-                            scales: {
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'Displacement (cm)'
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    console.log('✅ Displacement chart initialized');
-                }
-
-                const humptempCanvas = document.getElementById('humtempChart');
-                if (humptempCanvas && typeof Chart !== 'undefined') {
-                    this.charts.humptemp = new Chart(humptempCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: [],
-                            datasets: [
-                                {
-                                    label: 'Humidity',
-                                    data: [],
-                                    borderColor: 'rgba(13, 201, 230, 0.8)',
-                                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                },
-                                {
-                                    label: 'Temperature',
-                                    data: [],
-                                    borderColor: 'rgba(237, 234, 15, 0.8)',
-                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: true }
-                            },
-                            scales: {
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'Celcius dan %'
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    console.log('✅ HumTempChart initialized');
-                }
-
-                const rainCanvas = document.getElementById('rainChart');
-                if (rainCanvas && typeof Chart !== 'undefined') {
-                    this.charts.rain = new Chart(rainCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: [],
-                            datasets: [
-                                {
-                                    label: 'Daily Rain',
-                                    data: [],
-                                    borderColor: 'rgba(150, 13, 230, 0.8)',
-                                    backgroundColor: 'rgba(231, 76, 60, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                },
-                                {
-                                    label: 'Hourly Rain',
-                                    data: [],
-                                    borderColor: 'rgba(15, 22, 237, 0.8)',
-                                    backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                                    tension: 0.4,
-                                    fill: true
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: true }
-                            },
-                            scales: {
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'mm'
-                                    }
-                                }
-                            }
-                        }
-                    });
-                    console.log('✅ RainChart initialized');
-                }
-
-                // Risk Chart
-                const riskCanvas = document.getElementById('riskChart');
-                if (riskCanvas && typeof Chart !== 'undefined') {
-                    this.charts.risk = new Chart(riskCanvas, {
-                        type: 'line',
-                        data: {
-                            labels: [],
-                            datasets: [{
-                                label: 'Risk Score',
+                            {
+                                label: 'Pitch',
                                 data: [],
-                                borderColor: 'rgba(241, 196, 15, 0.8)',
-                                backgroundColor: 'rgba(241, 196, 15, 0.1)',
+                                borderColor: 'rgb(52, 152, 219)',
+                                backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                                borderWidth: 2,
                                 tension: 0.4,
-                                fill: true
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: false,
-                            plugins: {
-                                legend: { display: true }
+                                fill: true,
+                                pointRadius: 3,
+                                pointBackgroundColor: 'rgb(52, 152, 219)'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top'
                             },
-                            scales: {
-                                y: {
-                                    title: {
-                                        display: true,
-                                        text: 'Risk Score'
-                                    },
-                                    min: 0,
-                                    max: 7
+                            tooltip: {
+                                mode: 'index',
+                                intersect: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Angle (°)'
+                                },
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 8
                                 }
                             }
+                        },
+                        interaction: {
+                            intersect: false,
+                            mode: 'nearest'
                         }
-                    });
-                    console.log('✅ Risk chart initialized');
-                }
-
-            } catch (error) {
-                console.error('❌ Chart initialization error:', error);
-                this.addLog('system', 'error', `Chart initialization failed: ${error.message}`);
+                    }
+                });
+                console.log('✅ Tilt chart initialized');
             }
-        }, 100);
+
+            // 2. Soil Moisture Chart - FIXED
+            const soilCanvas = document.getElementById('soilChart');
+            if (soilCanvas) {
+                this.charts.soil = new Chart(soilCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Soil Moisture',
+                            data: [],
+                            borderColor: 'rgb(39, 174, 96)',
+                            backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 3,
+                            pointBackgroundColor: 'rgb(39, 174, 96)'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                min: 0,
+                                max: 100,
+                                title: {
+                                    display: true,
+                                    text: 'Moisture (%)'
+                                },
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 8
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Soil chart initialized');
+            }
+
+            // 3. Displacement Chart - FIXED
+            const displacementCanvas = document.getElementById('displacementChart');
+            if (displacementCanvas) {
+                this.charts.displacement = new Chart(displacementCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'X Axis',
+                                data: [],
+                                borderColor: 'rgb(155, 89, 182)',
+                                backgroundColor: 'rgba(155, 89, 182, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: false,
+                                pointRadius: 2
+                            },
+                            {
+                                label: 'Y Axis',
+                                data: [],
+                                borderColor: 'rgb(241, 196, 15)',
+                                backgroundColor: 'rgba(241, 196, 15, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: false,
+                                pointRadius: 2
+                            },
+                            {
+                                label: 'Z Axis',
+                                data: [],
+                                borderColor: 'rgb(230, 126, 34)',
+                                backgroundColor: 'rgba(230, 126, 34, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: false,
+                                pointRadius: 2
+                            },
+                            {
+                                label: 'Total',
+                                data: [],
+                                borderColor: 'rgb(52, 73, 94)',
+                                backgroundColor: 'rgba(52, 73, 94, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Displacement (cm)'
+                                },
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 8
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Displacement chart initialized');
+            }
+
+            // 4. Humidity & Temperature Chart - FIXED
+            const humtempCanvas = document.getElementById('humtempChart');
+            if (humtempCanvas) {
+                this.charts.humptemp = new Chart(humtempCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Humidity',
+                                data: [],
+                                borderColor: 'rgb(13, 201, 230)',
+                                backgroundColor: 'rgba(13, 201, 230, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 3,
+                                yAxisID: 'y'
+                            },
+                            {
+                                label: 'Temperature',
+                                data: [],
+                                borderColor: 'rgb(237, 234, 15)',
+                                backgroundColor: 'rgba(237, 234, 15, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 3,
+                                yAxisID: 'y1'
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Humidity (%)'
+                                },
+                                min: 0,
+                                max: 100,
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Temperature (°C)'
+                                },
+                                grid: {
+                                    drawOnChartArea: false,
+                                },
+                                ticks: {
+                                    color: 'rgb(237, 234, 15)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 8
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Humidity/Temperature chart initialized');
+            }
+
+            // 5. Rain Chart - FIXED (MASALAH UTAMA)
+            const rainCanvas = document.getElementById('rainChart');
+            if (rainCanvas) {
+                this.charts.rain = new Chart(rainCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [
+                            {
+                                label: 'Daily Rain',
+                                data: [],
+                                borderColor: 'rgb(150, 13, 230)',
+                                backgroundColor: 'rgba(150, 13, 230, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 3
+                            },
+                            {
+                                label: 'Hourly Rain',
+                                data: [],
+                                borderColor: 'rgb(15, 22, 237)',
+                                backgroundColor: 'rgba(15, 22, 237, 0.1)',
+                                borderWidth: 2,
+                                tension: 0.4,
+                                fill: true,
+                                pointRadius: 3
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                title: {
+                                    display: true,
+                                    text: 'Rain (mm)'
+                                },
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 8
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Rain chart initialized');
+            }
+
+            // 6. Risk Chart - FIXED
+            const riskCanvas = document.getElementById('riskChart');
+            if (riskCanvas) {
+                this.charts.risk = new Chart(riskCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Risk Score',
+                            data: [],
+                            borderColor: 'rgb(241, 196, 15)',
+                            backgroundColor: 'rgba(241, 196, 15, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            pointRadius: 3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { 
+                                display: true,
+                                position: 'top'
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                min: 0,
+                                max: 7,
+                                title: {
+                                    display: true,
+                                    text: 'Risk Score'
+                                },
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                }
+                            },
+                            x: {
+                                grid: {
+                                    color: 'rgba(255,255,255,0.1)'
+                                },
+                                ticks: {
+                                    maxTicksLimit: 8
+                                }
+                            }
+                        }
+                    }
+                });
+                console.log('✅ Risk chart initialized');
+            }
+
+            console.log('🎉 All charts initialized successfully');
+            
+            // Add sample data for testing
+            // this.addSampleData();
+            
+        } catch (error) {
+            console.error('❌ Chart creation error:', error);
+            this.addLog('system', 'error', `Chart creation failed: ${error.message}`);
+        }
     }
 
     setupEventListeners() {
@@ -669,8 +832,8 @@ class EWSDashboard {
             this.historyData.displacement.total.shift();
             this.historyData.weather.humd.shift();
             this.historyData.weather.temp.shift();
-            this.historyData.weather.dailyrain.shift();
-            this.historyData.weather.hourlyrain.shift();
+            this.historyData.weather.daily.shift();
+            this.historyData.weather.hourly.shift();
             this.historyData.risk.shift();
         }
         
@@ -697,6 +860,8 @@ class EWSDashboard {
     }
 
     updateCharts() {
+        console.log('📈 Updating charts with data points:', this.historyData.timestamps.length);
+        
         // Update tilt chart
         if (this.charts.tilt) {
             this.charts.tilt.data.labels = this.historyData.timestamps;
@@ -722,6 +887,7 @@ class EWSDashboard {
             this.charts.displacement.update('none');
         }
 
+        // Update humidity/temperature chart - FIXED
         if (this.charts.humptemp) {
             this.charts.humptemp.data.labels = this.historyData.timestamps;
             this.charts.humptemp.data.datasets[0].data = this.historyData.weather.humd;
@@ -729,10 +895,11 @@ class EWSDashboard {
             this.charts.humptemp.update('none');
         }
 
+        // Update rain chart - FIXED (MASALAH UTAMA)
         if (this.charts.rain) {
             this.charts.rain.data.labels = this.historyData.timestamps;
-            this.charts.rain.data.datasets[0].data = this.historyData.weather.dailyrain;
-            this.charts.rain.data.datasets[1].data = this.historyData.weather.hourlyrain;
+            this.charts.rain.data.datasets[0].data = this.historyData.weather.daily;
+            this.charts.rain.data.datasets[1].data = this.historyData.weather.hourly;
             this.charts.rain.update('none');
         }
         
@@ -742,6 +909,8 @@ class EWSDashboard {
             this.charts.risk.data.datasets[0].data = this.historyData.risk;
             this.charts.risk.update('none');
         }
+        
+        console.log('✅ Charts updated successfully');
     }
 
     updateThresholds() {

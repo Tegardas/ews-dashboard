@@ -751,13 +751,13 @@ class EWSDashboard {
         }
 
         const thresholds = {
-            tilt_warning: parseFloat(document.getElementById('tiltWarning').value) || DEFAULT_THRESHOLDS.tiltWarning,
-            tilt_danger: parseFloat(document.getElementById('tiltDanger').value) || DEFAULT_THRESHOLDS.tiltDanger,
-            soil_warning: parseInt(document.getElementById('soilWarning').value) || DEFAULT_THRESHOLDS.soilWarning,
-            soil_danger: parseInt(document.getElementById('soilDanger').value) || DEFAULT_THRESHOLDS.soilDanger,
-            humidity_warning: parseInt(document.getElementById('humidityWarning').value) || DEFAULT_THRESHOLDS.humidityWarning,
-            displacement_warning: parseFloat(document.getElementById('displacementWarning').value) || DEFAULT_THRESHOLDS.displacementWarning,
-            displacement_danger: parseFloat(document.getElementById('displacementDanger').value) || DEFAULT_THRESHOLDS.displacementDanger
+            tilt_warning: parseFloat(document.getElementById('tilt_warning').value) || DEFAULT_THRESHOLDS.tiltWarning,
+            tilt_danger: parseFloat(document.getElementById('tilt_danger').value) || DEFAULT_THRESHOLDS.tiltDanger,
+            soil_warning: parseInt(document.getElementById('soil_warning').value) || DEFAULT_THRESHOLDS.soilWarning,
+            soil_danger: parseInt(document.getElementById('soil_danger').value) || DEFAULT_THRESHOLDS.soilDanger,
+            humidity_warning: parseInt(document.getElementById('humidity_warning').value) || DEFAULT_THRESHOLDS.humidityWarning,
+            displacement_warning: parseFloat(document.getElementById('displacement_warning').value) || DEFAULT_THRESHOLDS.displacementWarning,
+            displacement_danger: parseFloat(document.getElementById('displacement_danger').value) || DEFAULT_THRESHOLDS.displacementDanger
         };
 
         const message = {
@@ -950,13 +950,13 @@ class EWSDashboard {
     saveToLocalStorage() {
         const saveData = {
             thresholds: {
-                tiltWarning: document.getElementById('tiltWarning').value,
-                tiltDanger: document.getElementById('tiltDanger').value,
-                soilWarning: document.getElementById('soilWarning').value,
-                soilDanger: document.getElementById('soilDanger').value,
-                humidityWarning: document.getElementById('humidityWarning').value,
-                displacementWarning: document.getElementById('displacementWarning').value,
-                displacementDanger: document.getElementById('displacementDanger').value,
+                tiltWarning: document.getElementById('tilt_warning').value,
+                tiltDanger: document.getElementById('tilt_danger').value,
+                soilWarning: document.getElementById('soil_warning').value,
+                soilDanger: document.getElementById('soil_danger').value,
+                humidityWarning: document.getElementById('humidity_warning').value,
+                displacementWarning: document.getElementById('displacement_warning').value,
+                displacementDanger: document.getElementById('displacement_danger').value,
                 mqttInterval: document.getElementById('mqttInterval').value
             },
             history: this.historyData,

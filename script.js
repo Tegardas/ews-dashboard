@@ -799,30 +799,6 @@ class EWSDashboard {
         this.addLog('control', 'info', 'Requested displacement reset');
     }
 
-    publishMessage(topic, message) {
-        if (this.mqttClient && this.mqttClient.readyState === WebSocket.OPEN) {
-            // MQTT PUBLISH packet
-            let packet = [];
-            
-            // Fixed header
-            packet.push(0x30); // PUBLISH packet type + QoS 0
-            
-            // Variable header - Topic name
-            packet.push(topic.length >> 8, topic.length & 0xFF);
-            packet.push(...Array.from(topic).map(c => c.charCodeAt(0)));
-            
-            // Payload
-            packet.push(...Array.from(message).map(c => c.charCodeAt(0)));
-            
-            // Set remaining length
-            const remainingLength = packet.length - 1;
-            packet[1] = remainingLength;
-            
-            const buffer = new Uint8Array(packet);
-            this.mqttClient.send(buffer);
-        }
-    }
-
     showAlert(data) {
         const alertMessage = document.getElementById('alertMessage');
         let message = '';

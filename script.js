@@ -1,7 +1,4 @@
 class EWSDashboard {
-    // ulala uhuuyy
-    // eeffb
-    // efnefef
     constructor() {
         this.mqttClient = null;
         this.isConnected = false;
@@ -11,7 +8,7 @@ class EWSDashboard {
             tilt: { roll: [], pitch: [] },
             soil: [],
             displacement: { x: [], y: [], z: [], total: [] },
-            weather: { humd: [], temp: [], daily: [], hourly: [] },
+            weather: { humd: [], temp: [], dailyrain: [], hourlyrain: [] },
             risk: []
         };
         this.charts = {};
@@ -672,8 +669,8 @@ class EWSDashboard {
             this.historyData.displacement.total.shift();
             this.historyData.weather.humd.shift();
             this.historyData.weather.temp.shift();
-            this.historyData.weather.daily.shift();
-            this.historyData.weather.hourly.shift();
+            this.historyData.weather.dailyrain.shift();
+            this.historyData.weather.hourlyrain.shift();
             this.historyData.risk.shift();
         }
         
@@ -690,8 +687,8 @@ class EWSDashboard {
             this.historyData.displacement.total.push(data.sensors.total_displacement || 0);
             this.historyData.weather.humd.push(data.sensors.humidity || 0);
             this.historyData.weather.temp.push(data.sensors.temperature || 0);
-            this.historyData.weather.daily.push(data.sensors.dailyrain || 0);
-            this.historyData.weather.hourly.push(data.sensors.hourlyrain || 0);
+            this.historyData.weather.dailyrain.push(data.sensors.dailyrain || 0);
+            this.historyData.weather.hourlyrain.push(data.sensors.hourlyrain || 0);
         }
         
         if (data.status?.risk_score !== undefined) {
@@ -764,11 +761,14 @@ class EWSDashboard {
         };
 
         const message = {
+            type: "threshold_update",
             ...thresholds,
             timestamp: Date.now()
+            source: "dashboard"
         };
 
-        this.publishMessage(MQTT_CONFIG.topics.control + '/threshold', JSON.stringify(message));
+        const controlTopic = MQTT_CONFIG.topics.control.replace('/#', '');
+        this.publishMessage(controlTopic + '/threshold', JSON.stringify(message));
         this.addLog('control', 'info', `Thresholds updated: ${JSON.stringify(thresholds)}`);
         
         // Update MQTT interval if changed
